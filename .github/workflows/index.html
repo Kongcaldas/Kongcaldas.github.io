@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sistema de Gestão de Inscrições — Otimizado</title>
+  <style>
+    /* =========================================================
+       Tema & Design Tokens
+    ========================================================= */
+    :root {
+      --bg-color: #121212;
+      --primary-surface: #1e1e1e;
+      --secondary-surface: #2a2a2a;
+      --primary-text: #eaeaea;
+      --secondary-text: #a0a0a0;
+      --accent-color: #03dac6;
+      --border-color: #333;
+      --error-color: #cf6679;
+      --save-color: #64ffda;
+
+      --color-blue: #2196F3;
+      --color-green: #4CAF50;
+      --color-yellow: #FFC107;
+      --color-red: #F44336;
+      --color-orange: #f47700;
+    }
+    [data-theme="light"] {
+      --bg-color: #f5f7fb;
+      --primary-surface: #ffffff;
+      --secondary-surface: #f1f3f5;
+      --primary-text: #111;
+      --secondary-text: #444;
+      --accent-color: #0fb;
+      --border-color: #e3e8ef;
+      --error-color: #e5484d;
+      --save-color: #12d1b1;
+
+      --color-blue: #1e66f5;
+      --color-green: #2fb344;
+      --color-yellow: #f59f00;
+      --color-red: #e03131;
+      --color-orange: #f76707;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-color);
+      color: var(--primary-text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.55;
+      padding: 18px;
+    }
+
+    /* Layout Base */
+    .container { max-width: 100%; margin: 16px auto; }
+    .card {
+      background: var(--primary-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 6px 24px rgba(0,0,0,.18);
+    }
+    h1 { font-size: 1.5rem; margin-bottom: 10px; }
+
+    /* Header: Ações Globais */
+    .toolbar {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: 1fr auto auto auto auto;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .search { display: flex; gap: 8px; align-items: center; }
+    .search input, .search select { width: 100%; }
+
+    .btn { padding: 10px 14px; border: 1px solid var(--border-color); background: var(--secondary-surface); color: var(--primary-text); border-radius: 10px; cursor: pointer; font-weight: 600; }
+    .btn:hover { filter: brightness(1.06); }
+    .btn-primary { background: linear-gradient(45deg, var(--accent-color), var(--save-color)); color: #000; border: none; }
+    .btn-danger { background: transparent; color: var(--error-color); border-color: var(--error-color); }
+
+    .chip { font-size: .9rem; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--border-color); background: var(--secondary-surface); }
+
+    /* Notificações/Estados */
+    #saveStatus { position: fixed; top: 16px; right: 16px; background: var(--save-color); color:#000; padding: 8px 12px; border-radius: 8px; font-weight: 800; opacity: 0; transform: translateY(-8px); transition: opacity .35s, transform .35s; z-index: 1000; }
+    #saveStatus.visible { opacity: 1; transform: translateY(0); }
+    #dirtyStatus { font-size: .9rem; color: var(--accent-color); visibility: hidden; }
+    #dirtyStatus.on { visibility: visible; }
+
+    /* FAB */
+    .fab {
+      position: fixed; bottom: 22px; right: 22px; width: 60px; height: 60px; border-radius: 50%; display: grid; place-items:center; border: none; cursor: pointer; z-index: 999; box-shadow: 0 6px 22px rgba(0,0,0,.35); background: linear-gradient(45deg,var(--accent-color), var(--save-color));
+    }
+    .fab svg { width: 28px; height: 28px; fill: #000; }
+
+    /* Views */
+    .view { display: none; }
+    .view.active { display: block; animation: fadeIn .3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: translateY(0);} }
+
+    /* Form */
+    form { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0,1fr)); }
+    form .full { grid-column: 1 / -1; }
+    input, textarea, select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--secondary-surface); color: var(--primary-text); font-size: 1rem; }
+    input:focus, textarea:focus, select:focus { outline: none; box-shadow: 0 0 0 2px rgba(3, 218, 198, .35); border-color: var(--accent-color); }
+    .field-hint { font-size: .85rem; color: var(--secondary-text); }
+    .error { color: var(--error-color); font-size: .85rem; }
+    .checkbox-group { display: flex; gap: 16px; align-items: center; }
+    .checkbox-group label { display: flex; align-items: center; gap: 6px; }
+
+    /* Tabela */
+    .table-container { overflow: auto; border: 1px solid var(--border-color); border-radius: 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+    th, td { padding: 12px 12px; border-bottom: 1px solid var(--border-color); white-space: nowrap; text-align: center; }
+    th { background: var(--secondary-surface); position: sticky; top: 0; z-index: 1; }
+
+    th.sortable { cursor: pointer; user-select: none; }
+    th.sortable .dir { opacity: .6; font-size: .8em; margin-left: 6px; }
+
+    tr.color-blue { background-color: color-mix(in srgb, var(--color-blue), transparent 60%); }
+    tr.color-green { background-color: color-mix(in srgb, var(--color-green), transparent 60%); }
+    tr.color-yellow { background-color: color-mix(in srgb, var(--color-yellow), transparent 60%); }
+    tr.color-red { background-color: color-mix(in srgb, var(--color-red), transparent 60%); }
+    tr.color-orange { background-color: color-mix(in srgb, var(--color-orange), transparent 60%); }
+
+    td[contenteditable="true"] { background: color-mix(in srgb, var(--accent-color), transparent 95%); cursor: text; border: 1px solid rgba(0, 0, 0, 0.3); }
+    td[contenteditable="true"]:focus { background: color-mix(in srgb, var(--accent-color), transparent 85%); outline: 1px solid var(--accent-color); }
+
+    .action-cell { min-width: 160px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .color-palette { display: flex; gap: 6px; }
+    .color-dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
+    .color-dot.active { border-color:#fff; }
+    .dot-blue { background: var(--color-blue); }
+    .dot-green { background: var(--color-green); }
+    .dot-yellow { background: var(--color-yellow); }
+    .dot-red { background: var(--color-red); }
+    .dot-orange { background: var(--color-orange); }
+
+    .delete-btn { border: 1px solid var(--border-color); padding: 6px 8px; border-radius: 8px; cursor: pointer; }
+    .delete-btn:hover { border-color: var(--error-color); color: var(--error-color); }
+
+    /* Paginação */
+    .pagination { display: flex; gap: 8px; align-items: center; justify-content: center; padding-top: 10px; }
+
+    /* Modal */
+    dialog { border: 1px solid var(--border-color); border-radius: 16px; background: var(--primary-surface); color: var(--primary-text); padding: 18px; max-width: 420px; }
+    dialog::backdrop { background: rgba(0,0,0,.55); }
+
+    /* Mobile */
+    @media (max-width: 720px) {
+      .toolbar { grid-template-columns: 1fr; }
+      form { grid-template-columns: 1fr; }
+      .btn { width: 100%; }
+      th, td { padding: 10px 8px; }
+    }
+
+    input[type=checkbox] {
+      appearance: none;
+      background-color: #dfe1e4;
+      border-radius: 72px;
+      border-style: none;
+      flex-shrink: 0;
+      height: 20px;
+      margin: 0;
+      position: relative;
+      width: 30px;
+      outline: none;
+    }
+
+    input[type=checkbox]::before {
+      bottom: -6px;
+      content: "";
+      left: -6px;
+      position: absolute;
+      right: -6px;
+      top: -6px;
+    }
+
+    input[type=checkbox],
+    input[type=checkbox]::after {
+      transition: all 100ms ease-out;
+    }
+
+    input[type=checkbox]::after {
+      background-color: #fff;
+      border-radius: 50%;
+      content: "";
+      height: 14px;
+      left: 3px;
+      position: absolute;
+      top: 3px;
+      width: 14px;
+    }
+
+    .checkbox-wrapper-2 input[type=checkbox] {
+      cursor: default;
+    }
+
+    input[type=checkbox]:hover {
+      background-color: #c9cbcd;
+      transition-duration: 0s;
+    }
+
+    input[type=checkbox]:checked {
+      background-color: #6e79d6;
+    }
+
+    input[type=checkbox]:checked::after {
+      background-color: #fff;
+      left: 13px;
+    }
+
+    .checkbox-wrapper-2 :focus:not(.focus-visible) {
+      outline: 0;
+    }
+
+    input[type=checkbox]:checked:hover {
+      background-color: #535db3;
+    }
+  </style>
+</head>
+<body>
+  <div id="saveStatus">✔ Salvo!</div>
+
+  <main class="container">
+    <section class="card toolbar">
+      <div class="search">
+        <input id="searchInput" placeholder="Pesquisar por nome, discord, observação (atalho: /)" />
+        <select id="filterPeriodo">
+          <option value="">Período</option>
+          <option value="manha">Manhã</option>
+          <option value="tarde">Tarde</option>
+          <option value="noite">Noite</option>
+        </select>
+        <select id="filterStatus">
+          <option value="">Status</option>
+          <option value="aprovado">Aprovado</option>
+          <option value="negado">Negado</option>
+          <option value="pendente">Pendente</option>
+        </select>
+      </div>
+      <div class="chip" id="dirtyStatus">Alterações não salvas…</div>
+      <button class="btn" id="themeToggle" title="Alternar tema">🌗 Tema</button>
+      <button class="btn" id="exportBtn" title="Exportar JSON/CSV">⬇️ Exportar</button>
+      <label class="btn" for="importFile" title="Importar JSON">⬆️ Importar</label>
+      <input id="importFile" type="file" accept="application/json" hidden />
+    </section>
+
+    <!-- View: Cadastro -->
+    <section id="cadastroView" class="view card">
+      <h1>Nova Inscrição</h1>
+      <form id="inscriptionForm" novalidate>
+        <div>
+          <input id="nome" name="nome" placeholder="Nome Completo" required minlength="2" />
+          <div class="error" data-error-for="nome"></div>
+        </div>
+        <div>
+          <input id="idade" name="idade" type="number" placeholder="Idade" required min="1" max="120" />
+          <div class="error" data-error-for="idade"></div>
+        </div>
+        <div>
+          <input id="discord" name="discord" placeholder="Discord (opcional)" />
+          <div class="field-hint">Ex: seuNick#0000</div>
+        </div>
+        <div class="checkbox-group full">
+          <span>Período:</span>
+          <label><input type="checkbox" name="periodo" value="manha"> Manhã</label>
+          <label><input type="checkbox" name="periodo" value="tarde"> Tarde</label>
+          <label><input type="checkbox" name="periodo" value="noite"> Noite</label>
+        </div>
+        <div>
+          <input id="data" name="data" type="date" />
+        </div>
+        <div>
+          <input id="hora" name="hora" type="time" />
+        </div>
+        <div class="full">
+          <textarea id="observacao" name="observacao" placeholder="Observações (opcional)…" rows="3"></textarea>
+        </div>
+        <div class="full" style="display:flex; gap:10px;">
+          <button class="btn btn-primary" type="submit">Adicionar Inscrição</button>
+          <button class="btn" type="reset">Limpar</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- View: Visualização / Edição -->
+    <section id="visualizacaoView" class="view card active">
+      <h1>Inscrições Recebidas</h1>
+      <div class="table-container">
+        <table id="dataTable">
+          <thead>
+            <tr>
+              <th>Ações</th>
+              <th class="sortable" data-sort="nome">Nome <span class="dir"></span></th>
+              <th class="sortable" data-sort="idade">Idade <span class="dir"></span></th>
+              <th class="sortable" data-sort="discord">Discord <span class="dir"></span></th>
+              <th>Data Entrevista</th>
+              <th>Hora Entrevista</th>
+              <th>Manhã</th>
+              <th>Tarde</th>
+              <th>Noite</th>
+              <th class="sortable" data-sort="aprovado">Aprovado <span class="dir"></span></th>
+              <th class="sortable" data-sort="negado">Negado <span class="dir"></span></th>
+              <th class="sortable" data-sort="entrevistador">Entrevistador <span class="dir"></span></th>
+              <th class="sortable" data-sort="observacao">Observação <span class="dir"></span></th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+      <div class="pagination">
+        <label>
+          <select id="pageSize">
+            <option>10</option>
+            <option selected>25</option>
+            <option>50</option>
+            <option>100</option>
+          </select>
+        </label>
+        <button class="btn" id="prevPage">◀</button>
+        <span id="pageInfo" class="chip">Página 1/1</span>
+        <button class="btn" id="nextPage">▶</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- FAB -->
+  <button id="fab" class="fab" title="Alternar Visualização"></button>
+
+  <!-- Modal de Confirmação -->
+  <dialog id="confirmDialog">
+    <form method="dialog">
+      <h3 style="margin-bottom:8px;">Confirmar exclusão</h3>
+      <p id="confirmText" style="margin-bottom:14px; color: var(--secondary-text);">Tem certeza que deseja deletar esta inscrição? Esta ação não pode ser desfeita.</p>
+      <div style="display:flex; gap:10px; justify-content:flex-end;">
+        <button class="btn" value="cancel">Cancelar</button>
+        <button class="btn btn-danger" value="confirm">Deletar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    // =========================================================
+    // Utilidades
+    // =========================================================
+    const $ = (sel, el = document) => el.querySelector(sel);
+    const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
+    const DB_KEY = 'localInscriptionsDB';
+    const BACKUP_KEY_PREFIX = 'localInscriptionsDB_backup_';
+    const THEME_KEY = 'themePreference';
+
+    const icons = {
+      add: `<svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>`,
+      list: `<svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>`
+    };
+
+    // Sanitização básica para contenteditable
+    const sanitize = (str) => (str ?? '').toString().replace(/[<>]/g, '');
+
+    // Debounce util
+    const debounce = (fn, wait = 300) => {
+      let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); };
+    };
+
+    // Data helpers
+    const toBool = (v) => v === true || v === 'true';
+
+    // =========================================================
+    // Estado Global
+    // =========================================================
+    let database = [];
+    let currentView = 'visualizacao';
+    let dirty = false; // Alterações não salvas
+
+    // Filtro/Ordenação/Paginação
+    let searchQuery = '';
+    let filterPeriodo = '';
+    let filterStatus = '';
+    let sortField = 'dataEnvio';
+    let sortDir = 'asc';
+    let page = 1;
+    let pageSize = 25;
+
+    // Elementos
+    const fab = $('#fab');
+    const form = $('#inscriptionForm');
+    const tableBody = $('#tableBody');
+    const saveStatus = $('#saveStatus');
+    const dirtyStatus = $('#dirtyStatus');
+
+    const searchInput = $('#searchInput');
+    const filterPeriodoEl = $('#filterPeriodo');
+    const filterStatusEl = $('#filterStatus');
+    const pageSizeEl = $('#pageSize');
+    const prevPageBtn = $('#prevPage');
+    const nextPageBtn = $('#nextPage');
+    const pageInfo = $('#pageInfo');
+
+    const themeToggle = $('#themeToggle');
+    const exportBtn = $('#exportBtn');
+    const importFile = $('#importFile');
+    const confirmDialog = $('#confirmDialog');
+    const confirmText = $('#confirmText');
+
+    // =========================================================
+    // Persistência com Debounce + Backup
+    // =========================================================
+    const saveDatabaseNow = () => {
+      localStorage.setItem(DB_KEY, JSON.stringify(database));
+      createBackup();
+      dirty = false; updateDirtyUI();
+      saveStatus.classList.add('visible');
+      setTimeout(() => saveStatus.classList.remove('visible'), 1300);
+    };
+    const saveDatabase = debounce(saveDatabaseNow, 400);
+
+    const createBackup = () => {
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+      try { localStorage.setItem(`${BACKUP_KEY_PREFIX}${stamp}`, JSON.stringify(database)); } catch(e) {}
+      // Rotaciona (mantém só os 5 mais recentes)
+      const backups = Object.keys(localStorage).filter(k => k.startsWith(BACKUP_KEY_PREFIX)).sort().reverse();
+      backups.slice(5).forEach(k => localStorage.removeItem(k));
+    };
+
+    const loadDatabase = () => {
+      const data = localStorage.getItem(DB_KEY);
+      database = data ? JSON.parse(data) : [];
+    };
+
+    const markDirty = () => { dirty = true; updateDirtyUI(); };
+    const updateDirtyUI = () => {
+      dirtyStatus.classList.toggle('on', dirty);
+      window.onbeforeunload = dirty ? () => true : null;
+    };
+
+    // =========================================================
+    // Tema
+    // =========================================================
+    const applyTheme = (t) => document.documentElement.setAttribute('data-theme', t);
+    const loadTheme = () => { const t = localStorage.getItem(THEME_KEY) || 'dark'; applyTheme(t); };
+    const toggleTheme = () => {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      applyTheme(next); localStorage.setItem(THEME_KEY, next);
+    };
+
+    // =========================================================
+    // Navegação entre views
+    // =========================================================
+    const switchView = (viewName) => {
+      currentView = viewName;
+      $$('.view').forEach(v => v.classList.remove('active'));
+      if (viewName === 'visualizacao') {
+        $('#visualizacaoView').classList.add('active');
+        fab.innerHTML = icons.add; fab.title = 'Nova Inscrição';
+        render();
+      } else {
+        $('#cadastroView').classList.add('active');
+        fab.innerHTML = icons.list; fab.title = 'Ver Inscrições';
+        $('#nome')?.focus();
+      }
+    };
+
+    fab.addEventListener('click', () => switchView(currentView === 'visualizacao' ? 'cadastro' : 'visualizacao'));
+
+    // =========================================================
+    // Formulário: Validação + Criação
+    // =========================================================
+    const showError = (id, msg) => { const el = document.querySelector(`[data-error-for="${id}"]`); if (el) el.textContent = msg || ''; };
+    const clearErrors = () => $$('.error').forEach(e => e.textContent = '');
+
+    form?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      clearErrors();
+
+      const nome = sanitize($('#nome').value.trim());
+      const idadeVal = parseInt($('#idade').value, 10);
+      const discord = sanitize($('#discord').value.trim());
+      const data = $('#data').value || '';
+      const hora = $('#hora').value || '';
+      const periodos = $$('input[name="periodo"]:checked').map(cb => cb.value);
+      const manha = periodos.includes('manha');
+      const tarde = periodos.includes('tarde');
+      const noite = periodos.includes('noite');
+      const observacao = sanitize($('#observacao').value);
+
+      let valid = true;
+      if (nome.length < 2) { showError('nome','Informe um nome válido.'); valid = false; }
+      if (!(idadeVal > 0 && idadeVal <= 120)) { showError('idade','Idade deve ser entre 1 e 120.'); valid = false; }
+      if (data && !/^\d{4}-\d{2}-\d{2}$/.test(data)) { valid = false; }
+      if (hora && !/^\d{2}:\d{2}$/.test(hora)) { valid = false; }
+      if (!valid) return;
+
+      const newEntry = {
+        id: Date.now().toString(),
+        nome, idade: idadeVal, discord,
+        data, hora,
+        manha, tarde, noite,
+        aprovado: false, negado: false, entrevistador: '',
+        observacao,
+        dataEnvio: new Date().toISOString(),
+        rowColor: ''
+      };
+      database.push(newEntry);
+      markDirty(); saveDatabase();
+      form.reset();
+      switchView('visualizacao');
+    });
+
+    // =========================================================
+    // Renderização: filtros, ordenação, paginação
+    // =========================================================
+    const filteredSorted = () => {
+      let data = [...database];
+      // Busca
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        data = data.filter(item => [item.nome, item.discord, item.observacao].some(v => (v||'').toLowerCase().includes(q)));
+      }
+      // Filtros
+      if (filterPeriodo) data = data.filter(i => !!i[filterPeriodo]);
+      if (filterStatus) {
+        if (filterStatus === 'pendente') data = data.filter(i => !i.aprovado && !i.negado);
+        else data = data.filter(i => !!i[filterStatus]);
+      }
+      // Ordenação
+      data.sort((a,b) => {
+        let av = a[sortField], bv = b[sortField];
+        if (sortField === 'idade') { av = Number(av)||0; bv = Number(bv)||0; }
+        const dir = sortDir === 'asc' ? 1 : -1;
+        if (av == null && bv == null) return 0;
+        if (av == null) return 1;
+        if (bv == null) return -1;
+        if (av > bv) return dir;
+        if (av < bv) return -dir;
+        return 0;
+      });
+      return data;
+    };
+
+    const render = () => {
+      const data = filteredSorted();
+      // Paginação
+      const total = data.length;
+      const pages = Math.max(1, Math.ceil(total / pageSize));
+      page = Math.min(Math.max(1, page), pages);
+      const start = (page - 1) * pageSize;
+      const end = start + pageSize;
+      const slice = data.slice(start, end);
+
+      tableBody.innerHTML = '';
+      if (!slice.length) {
+        tableBody.innerHTML = `<tr><td colspan="13" style="text-align:center; padding:36px;">Nenhuma inscrição encontrada.</td></tr>`;
+      } else {
+        slice.forEach(item => tableBody.appendChild(buildRow(item)));
+      }
+      pageInfo.textContent = `Página ${page}/${pages} — ${total} registro(s)`;
+      // Atualiza setas
+      prevPageBtn.disabled = page <= 1; nextPageBtn.disabled = page >= pages;
+      updateSortHeaders();
+    };
+
+    const buildRow = (item) => {
+      const tr = document.createElement('tr');
+      tr.dataset.id = item.id; tr.className = item.rowColor ? `color-${item.rowColor}` : '';
+      tr.innerHTML = `
+        <td class="action-cell">
+          <div class="color-palette">${createColorPaletteHTML(item.rowColor)}</div>
+          <button class="delete-btn">Excluir</button>
+        </td>
+        <td contenteditable="true" data-field="nome">${escapeHTML(item.nome || '')}</td>
+        <td contenteditable="true" data-field="idade">${escapeHTML(item.idade?.toString() || '')}</td>
+        <td contenteditable="true" data-field="discord">${escapeHTML(item.discord || '')}</td>
+        <td><input type="date" data-field="data" value="${item.data || ''}"></td>
+        <td><input type="time" data-field="hora" value="${item.hora || ''}"></td>
+        <td><input type="checkbox" data-field="manha" ${item.manha ? 'checked' : ''}></td>
+        <td><input type="checkbox" data-field="tarde" ${item.tarde ? 'checked' : ''}></td>
+        <td><input type="checkbox" data-field="noite" ${item.noite ? 'checked' : ''}></td>
+        <td><input type="checkbox" data-field="aprovado" ${item.aprovado ? 'checked' : ''}></td>
+        <td><input type="checkbox" data-field="negado" ${item.negado ? 'checked' : ''}></td>
+        <td contenteditable="true" data-field="entrevistador">${escapeHTML(item.entrevistador || '')}</td>
+        <td contenteditable="true" data-field="observacao">${escapeHTML(item.observacao || '')}</td>
+      `;
+      return tr;
+    };
+
+    const createColorPaletteHTML = (selected) => ['blue','green','yellow','red','orange']
+      .map(c => `<div class="color-dot dot-${c} ${selected===c?'active':''}" data-color="${c}"></div>`)
+      .join('');
+
+    const updateSortHeaders = () => {
+      $$('#dataTable th.sortable').forEach(th => {
+        const dirEl = $('.dir', th); dirEl.textContent = '';
+        if (th.dataset.sort === sortField) dirEl.textContent = sortDir === 'asc' ? '▲' : '▼';
+      });
+    };
+
+    const escapeHTML = (s) => sanitize(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+    // =========================================================
+    // Interações na Tabela (delegation)
+    // =========================================================
+    tableBody.addEventListener('blur', (e) => {
+      if (e.target.isContentEditable) {
+        const tr = e.target.closest('tr');
+        const id = tr.dataset.id; const field = e.target.dataset.field; const value = sanitize(e.target.textContent.trim());
+        updateItem(id, field, field === 'idade' ? Number(value)||'' : value);
+      }
+    }, true);
+
+    tableBody.addEventListener('change', (e) => {
+      const tr = e.target.closest('tr'); if (!tr) return;
+      const id = tr.dataset.id; const field = e.target.dataset.field;
+      if (e.target.type === 'checkbox') {
+        updateItem(id, field, !!e.target.checked);
+        if (field === 'aprovado' && e.target.checked) { // exclusão mútua
+          updateItem(id, 'negado', false, {silent: true});
+          tr.querySelector('input[data-field="negado"]').checked = false;
+        }
+        if (field === 'negado' && e.target.checked) {
+          updateItem(id, 'aprovado', false, {silent: true});
+          tr.querySelector('input[data-field="aprovado"]').checked = false;
+        }
+      } else if (e.target.type === 'date' || e.target.type === 'time') {
+        updateItem(id, field, e.target.value);
+      }
+    });
+
+    tableBody.addEventListener('click', (e) => {
+      const colorDot = e.target.closest('.color-dot');
+      const delBtn = e.target.closest('.delete-btn');
+      const tr = e.target.closest('tr');
+      if (!tr) return;
+      const id = tr.dataset.id;
+
+      if (colorDot) {
+        const color = colorDot.dataset.color;
+        const item = database.find(i => i.id === id);
+        const next = item.rowColor === color ? '' : color;
+        updateItem(id, 'rowColor', next);
+        // Atualiza UI rapidamente
+        tr.className = next ? `color-${next}` : '';
+        tr.querySelectorAll('.color-dot').forEach(dot => dot.classList.toggle('active', dot.dataset.color === next));
+      }
+
+      if (delBtn) {
+        confirmText.textContent = 'Tem certeza que deseja deletar esta inscrição? Esta ação não pode ser desfeita.';
+        confirmDialog.showModal();
+        confirmDialog.onclose = () => {
+          if (confirmDialog.returnValue === 'confirm') {
+            database = database.filter(i => i.id !== id);
+            markDirty(); saveDatabase();
+            render();
+          }
+        };
+      }
+    });
+
+    // Ordenação por cabeçalho
+    $('#dataTable thead').addEventListener('click', (e) => {
+      const th = e.target.closest('th.sortable'); if (!th) return;
+      const f = th.dataset.sort;
+      if (sortField === f) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+      else { sortField = f; sortDir = 'asc'; }
+      render();
+    });
+
+    // =========================================================
+    // Atualização de Item
+    // =========================================================
+    const updateItem = (id, field, value, {silent=false}={}) => {
+      const idx = database.findIndex(i => i.id === id); if (idx === -1) return;
+      database[idx][field] = value;
+      if (!silent) { markDirty(); saveDatabase(); }
+    };
+
+    // =========================================================
+    // Filtros/Busca/Paginação
+    // =========================================================
+    searchInput.addEventListener('input', debounce((e) => { searchQuery = e.target.value.trim(); page = 1; render(); }, 250));
+    filterPeriodoEl.addEventListener('change', (e) => { filterPeriodo = e.target.value; page = 1; render(); });
+    filterStatusEl.addEventListener('change', (e) => { filterStatus = e.target.value; page = 1; render(); });
+
+    pageSizeEl.addEventListener('change', (e) => { pageSize = parseInt(e.target.value, 10); page = 1; render(); });
+    prevPageBtn.addEventListener('click', () => { page = Math.max(1, page - 1); render(); });
+    nextPageBtn.addEventListener('click', () => { page = page + 1; render(); });
+
+    // =========================================================
+    // Exportar / Importar
+    // =========================================================
+    exportBtn.addEventListener('click', () => {
+      const data = filteredSorted();
+      // JSON
+      downloadFile('inscricoes.json', JSON.stringify(data, null, 2), 'application/json');
+      // CSV
+      const csv = toCSV(data);
+      downloadFile('inscricoes.csv', csv, 'text/csv');
+    });
+
+    importFile.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0]; if (!file) return;
+      try {
+        const text = await file.text();
+        const arr = JSON.parse(text);
+        if (!Array.isArray(arr)) throw new Error('JSON inválido');
+        // Merge simples: adiciona IDs novos, atualiza se existir
+        const map = new Map(database.map(i => [i.id, i]));
+        for (const rec of arr) {
+          if (!rec.id) rec.id = String(Date.now() + Math.random());
+          map.set(rec.id, {...map.get(rec.id), ...rec});
+        }
+        database = [...map.values()];
+        markDirty(); saveDatabase();
+        render();
+      } catch (err) { alert('Falha ao importar: ' + err.message); }
+      finally { e.target.value = ''; }
+    });
+
+    const toCSV = (rows) => {
+      const headers = ['id','nome','idade','discord','data','hora','manha','tarde','noite','aprovado','negado','entrevistador','observacao','dataEnvio','rowColor'];
+      const escape = (v) => '"' + (String(v ?? '').replace(/"/g,'""')) + '"';
+      const lines = [headers.join(',')];
+      for (const r of rows) lines.push(headers.map(h => escape(r[h])).join(','));
+      return lines.join('\n');
+    };
+
+    const downloadFile = (name, content, type) => {
+      const blob = new Blob([content], {type});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = name; a.click();
+      URL.revokeObjectURL(a.href);
+    };
+
+    // =========================================================
+    // Atalhos de Teclado
+    // =========================================================
+    document.addEventListener('keydown', (e) => {
+      // Salvar: Ctrl/Cmd + S
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveDatabaseNow(); }
+      // Nova inscrição: Ctrl/Cmd + N
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') { e.preventDefault(); switchView('cadastro'); }
+      // Foco busca: /
+      if (!e.ctrlKey && !e.metaKey && e.key === '/') { e.preventDefault(); searchInput.focus(); }
+    });
+
+    // =========================================================
+    // Inicialização
+    // =========================================================
+    document.addEventListener('DOMContentLoaded', () => {
+      loadTheme();
+      loadDatabase();
+      switchView('visualizacao');
+    });
+
+    themeToggle.addEventListener('click', toggleTheme);
+  </script>
+</body>
+</html>
