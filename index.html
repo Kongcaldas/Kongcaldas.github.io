@@ -1,759 +1,1312 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-theme="dark">
+<html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sistema de Gestão de Inscrições — Otimizado</title>
+  <title>Dossiê LSPD — Ferramenta de Investigação</title>
+
+  <!--
+  INSTRUÇÕES RÁPIDAS
+  - Colar imagem: Clique no campo de "Link da Foto" e pressione Ctrl+V com a imagem no clipboard.
+    O sistema converte para DataURL automaticamente e salva no campo e no preview.
+  - Exportar/Importar JSON: Use os botões no topo. O arquivo JSON inclui todos os campos, listas e HTML do editor.
+  - Tema Escuro: Clique no botão "Tema Escuro" para alternar. O PDF sempre sairá com tema claro.
+  - Geração de PDF: Clique "Pré-visualizar PDF" para ver as páginas renderizadas e depois "Baixar PDF".
+    O PDF é real e multi-página (jsPDF + html2canvas), com marca d'água CONFIDENCIAL, selo LSPD, cabeçalho e rodapé.
+  - CORS e Imagens:
+    * Preferimos DataURL (colando imagens ou quando o fetch consegue converter URL remota em DataURL).
+    * Se fetch falhar por CORS, tentamos html2canvas com useCORS:true.
+    * Se não for possível incorporar a imagem, usamos uma placeholder "Imagem indisponível".
+  - Seções: É possível colapsar/expandir cada seção clicando no ícone do título.
+  - Atalhos: Pressionar Enter nos campos adiciona veículos, conexões, evidências e timeline.
+  - Salvamento: Tudo salva automaticamente no localStorage a cada alteração e recarrega ao abrir a página.
+
+  MODO 100% OFFLINE (EMBUTIR LIBS)
+  - Para usar totalmente offline (sem CDN):
+    1) Baixe Quill, Font Awesome, jsPDF e html2canvas.
+    2) Coloque seus conteúdos inline em <style> e <script> ou converta em DataURL base64.
+    3) Substitua os links de CDN por blocos inline.
+    4) Alternativa: crie uma flag embedLibs=true e carregue blocos inline condicionais.
+
+  TROCAR O SELO LSPD
+  - A logo do PDF foi atualizada com um PNG embutido em DataURL. Para trocar por outro,
+    substitua a constante LSPD_SEAL_DATAURL por um dataURL PNG/JPEG.
+  -->
+
+  <!-- Font & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <!-- Quill -->
+  <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+
+  <!-- jsPDF + html2canvas -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
   <style>
-    /* =========================================================
-       Tema & Design Tokens
-    ========================================================= */
     :root {
-      --bg-color: #121212;
-      --primary-surface: #1e1e1e;
-      --secondary-surface: #2a2a2a;
-      --primary-text: #eaeaea;
-      --secondary-text: #a0a0a0;
-      --accent-color: #03dac6;
-      --border-color: #333;
-      --error-color: #cf6679;
-      --save-color: #64ffda;
-
-      --color-blue: #2196F3;
-      --color-green: #4CAF50;
-      --color-yellow: #FFC107;
-      --color-red: #F44336;
-      --color-orange: #f47700;
+      --bg: #0f1216;
+      --panel: #141923;
+      --panel-2: #1a2130;
+      --text: #e8edf5;
+      --muted: #aab3c0;
+      --accent: #4da3ff;
+      --accent-2: #ff6b6b;
+      --success: #44d19f;
+      --border: #2a3342;
+      --btn-primary: #4da3ff;
+      --btn-alt: #6c7a92;
+      --btn-ghost: transparent;
+      --btn-text: #0b0e13;
+      --shadow: 0 6px 20px rgba(0,0,0,0.35);
     }
-    [data-theme="light"] {
-      --bg-color: #f5f7fb;
-      --primary-surface: #ffffff;
-      --secondary-surface: #f1f3f5;
-      --primary-text: #111;
-      --secondary-text: #444;
-      --accent-color: #0fb;
-      --border-color: #e3e8ef;
-      --error-color: #e5484d;
-      --save-color: #12d1b1;
-
-      --color-blue: #1e66f5;
-      --color-green: #2fb344;
-      --color-yellow: #f59f00;
-      --color-red: #e03131;
-      --color-orange: #f76707;
+    body.light {
+      --bg: #f4f6fb;
+      --panel: #ffffff;
+      --panel-2: #f7f9fc;
+      --text: #0b0e13;
+      --muted: #51607a;
+      --accent: #1f6feb;
+      --accent-2: #c62828;
+      --success: #2e7d32;
+      --border: #d6deeb;
+      --btn-primary: #1f6feb;
+      --btn-alt: #48566b;
+      --btn-ghost: transparent;
+      --btn-text: #ffffff;
+      --shadow: 0 6px 20px rgba(0,0,0,0.15);
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      background-color: var(--bg-color);
-      color: var(--primary-text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      line-height: 1.55;
-      padding: 18px;
-    }
-
-    /* Layout Base */
-    .container { max-width: 100%; margin: 16px auto; }
-    .card {
-      background: var(--primary-surface);
-      border: 1px solid var(--border-color);
-      border-radius: 14px;
-      padding: 18px;
-      box-shadow: 0 6px 24px rgba(0,0,0,.18);
-    }
-    h1 { font-size: 1.5rem; margin-bottom: 10px; }
-
-    /* Header: Ações Globais */
-    .toolbar {
-      display: grid;
-      gap: 10px;
-      grid-template-columns: 1fr auto auto auto auto;
-      align-items: center;
-      margin-bottom: 12px;
-    }
-    .search { display: flex; gap: 8px; align-items: center; }
-    .search input, .search select { width: 100%; }
-
-    .btn { padding: 10px 14px; border: 1px solid var(--border-color); background: var(--secondary-surface); color: var(--primary-text); border-radius: 10px; cursor: pointer; font-weight: 600; }
-    .btn:hover { filter: brightness(1.06); }
-    .btn-primary { background: linear-gradient(45deg, var(--accent-color), var(--save-color)); color: #000; border: none; }
-    .btn-danger { background: transparent; color: var(--error-color); border-color: var(--error-color); }
-
-    .chip { font-size: .9rem; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--border-color); background: var(--secondary-surface); }
-
-    /* Notificações/Estados */
-    #saveStatus { position: fixed; top: 16px; right: 16px; background: var(--save-color); color:#000; padding: 8px 12px; border-radius: 8px; font-weight: 800; opacity: 0; transform: translateY(-8px); transition: opacity .35s, transform .35s; z-index: 1000; }
-    #saveStatus.visible { opacity: 1; transform: translateY(0); }
-    #dirtyStatus { font-size: .9rem; color: var(--accent-color); visibility: hidden; }
-    #dirtyStatus.on { visibility: visible; }
-
-    /* FAB */
-    .fab {
-      position: fixed; bottom: 22px; right: 22px; width: 60px; height: 60px; border-radius: 50%; display: grid; place-items:center; border: none; cursor: pointer; z-index: 999; box-shadow: 0 6px 22px rgba(0,0,0,.35); background: linear-gradient(45deg,var(--accent-color), var(--save-color));
-    }
-    .fab svg { width: 28px; height: 28px; fill: #000; }
-
-    /* Views */
-    .view { display: none; }
-    .view.active { display: block; animation: fadeIn .3s ease; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: translateY(0);} }
-
-    /* Form */
-    form { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0,1fr)); }
-    form .full { grid-column: 1 / -1; }
-    input, textarea, select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--secondary-surface); color: var(--primary-text); font-size: 1rem; }
-    input:focus, textarea:focus, select:focus { outline: none; box-shadow: 0 0 0 2px rgba(3, 218, 198, .35); border-color: var(--accent-color); }
-    .field-hint { font-size: .85rem; color: var(--secondary-text); }
-    .error { color: var(--error-color); font-size: .85rem; }
-    .checkbox-group { display: flex; gap: 16px; align-items: center; }
-    .checkbox-group label { display: flex; align-items: center; gap: 6px; }
-
-    /* Tabela */
-    .table-container { overflow: auto; border: 1px solid var(--border-color); border-radius: 10px; }
-    table { width: 100%; border-collapse: collapse; font-size: .95rem; }
-    th, td { padding: 12px 12px; border-bottom: 1px solid var(--border-color); white-space: nowrap; text-align: center; }
-    th { background: var(--secondary-surface); position: sticky; top: 0; z-index: 1; }
-
-    th.sortable { cursor: pointer; user-select: none; }
-    th.sortable .dir { opacity: .6; font-size: .8em; margin-left: 6px; }
-
-    tr.color-blue { background-color: color-mix(in srgb, var(--color-blue), transparent 60%); }
-    tr.color-green { background-color: color-mix(in srgb, var(--color-green), transparent 60%); }
-    tr.color-yellow { background-color: color-mix(in srgb, var(--color-yellow), transparent 60%); }
-    tr.color-red { background-color: color-mix(in srgb, var(--color-red), transparent 60%); }
-    tr.color-orange { background-color: color-mix(in srgb, var(--color-orange), transparent 60%); }
-
-    td[contenteditable="true"] { background: color-mix(in srgb, var(--accent-color), transparent 95%); cursor: text; border: 1px solid rgba(0, 0, 0, 0.3); }
-    td[contenteditable="true"]:focus { background: color-mix(in srgb, var(--accent-color), transparent 85%); outline: 1px solid var(--accent-color); }
-
-    .action-cell { min-width: 160px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
-    .color-palette { display: flex; gap: 6px; }
-    .color-dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
-    .color-dot.active { border-color:#fff; }
-    .dot-blue { background: var(--color-blue); }
-    .dot-green { background: var(--color-green); }
-    .dot-yellow { background: var(--color-yellow); }
-    .dot-red { background: var(--color-red); }
-    .dot-orange { background: var(--color-orange); }
-
-    .delete-btn { border: 1px solid var(--border-color); padding: 6px 8px; border-radius: 8px; cursor: pointer; }
-    .delete-btn:hover { border-color: var(--error-color); color: var(--error-color); }
-
-    /* Paginação */
-    .pagination { display: flex; gap: 8px; align-items: center; justify-content: center; padding-top: 10px; }
-
-    /* Modal */
-    dialog { border: 1px solid var(--border-color); border-radius: 16px; background: var(--primary-surface); color: var(--primary-text); padding: 18px; max-width: 420px; }
-    dialog::backdrop { background: rgba(0,0,0,.55); }
-
-    /* Mobile */
-    @media (max-width: 720px) {
-      .toolbar { grid-template-columns: 1fr; }
-      form { grid-template-columns: 1fr; }
-      .btn { width: 100%; }
-      th, td { padding: 10px 8px; }
-    }
-
-    input[type=checkbox] {
-      appearance: none;
-      background-color: #dfe1e4;
-      border-radius: 72px;
-      border-style: none;
-      flex-shrink: 0;
-      height: 20px;
+    * { box-sizing: border-box; }
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
       margin: 0;
-      position: relative;
-      width: 30px;
-      outline: none;
     }
 
-    input[type=checkbox]::before {
-      bottom: -6px;
-      content: "";
-      left: -6px;
-      position: absolute;
-      right: -6px;
-      top: -6px;
+    .app {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      grid-template-rows: auto 1fr;
+      grid-template-areas:
+        "topbar topbar"
+        "sidebar main";
+      height: 100vh;
+    }
+    .topbar {
+      grid-area: topbar;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .title { display: flex; align-items: center; gap: 12px; font-weight: 700; letter-spacing: 0.5px; }
+    .controls { display: flex; gap: 8px; align-items: center; }
+
+    .sidebar {
+      grid-area: sidebar;
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      padding: 16px;
+      overflow: auto;
+    }
+    .main {
+      grid-area: main;
+      padding: 16px;
+      background: var(--panel-2);
+      overflow: auto;
     }
 
-    input[type=checkbox],
-    input[type=checkbox]::after {
-      transition: all 100ms ease-out;
+    .section {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0));
+    }
+    .section-header h3 { font-size: 15px; margin: 0; font-weight: 700; letter-spacing: 0.3px; }
+    .collapse-btn {
+      border: none; background: var(--btn-ghost); color: var(--muted);
+      cursor: pointer; padding: 6px 8px; border-radius: 8px;
+    }
+    .collapse-btn:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+    .section-body { padding: 14px; display: grid; gap: 12px; }
+    .section.collapsed .section-body { display: none; }
+
+    .field { display: grid; gap: 6px; }
+    .field label { font-size: 12px; color: var(--muted); }
+    input[type="text"], input[type="url"], select, textarea {
+      background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 12px; outline: none; transition: border 0.2s, background 0.2s;
+    }
+    input::placeholder, textarea::placeholder { color: var(--muted); }
+    input:focus, textarea:focus, select:focus { border-color: var(--accent); background: #0f1520; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .row-auto { display: flex; gap: 8px; flex-wrap: wrap; }
+    .error { border-color: var(--accent-2) !important; }
+    .error-msg { color: var(--accent-2); font-size: 12px; display:none; }
+
+    .btn {
+      border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;
+      cursor: pointer; font-weight: 600; font-size: 14px; transition: transform 0.02s, background 0.2s, color 0.2s, border 0.2s;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn-primary { background: var(--btn-primary); color: var(--btn-text); border-color: transparent; }
+    .btn-ghost { background: var(--btn-ghost); color: var(--text); }
+    .btn-alt { background: var(--btn-alt); color: #fff; border-color: transparent; }
+    .btn-danger { background: var(--accent-2); color: #fff; border-color: transparent; }
+
+    .avatar {
+      width: 120px; height: 120px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border);
+      display: grid; place-items: center; background: var(--panel-2);
+    }
+    .avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .thumb {
+      width: 64px; height: 64px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border);
+      background: var(--panel-2); display: grid; place-items: center;
+    }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .thumb-placeholder { font-size: 10px; color: var(--muted); text-align: center; padding: 6px; }
+
+    .list { display: grid; gap: 8px; }
+    .list-item {
+      display: flex; align-items: center; gap: 10px; background: var(--panel-2);
+      border: 1px solid var(--border); border-radius: 10px; padding: 8px;
+    }
+    .item-content { flex: 1; display: grid; gap: 4px; }
+    .item-actions { display: flex; gap: 6px; }
+
+    .editor-container { background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .ql-toolbar.ql-snow { background: var(--panel-2); border: none; border-bottom: 1px solid var(--border); color: var(--text); }
+    .ql-container.ql-snow { border: none; background: #ffffff; color: #0b0e13; min-height: 220px; }
+
+    .toast-container { position: fixed; bottom: 20px; right: 20px; display: grid; gap: 8px; z-index: 1000; }
+    .toast {
+      background: var(--panel); color: var(--text); border: 1px solid var(--border);
+      border-left: 4px solid var(--success); padding: 10px 12px; border-radius: 10px; box-shadow: var(--shadow);
+      font-size: 14px; opacity: 0; transform: translateY(10px); animation: toastIn 200ms ease forwards;
+    }
+    .toast.error { border-left-color: var(--accent-2); }
+    @keyframes toastIn { to { opacity: 1; transform: translateY(0); } }
+
+    .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 2000; }
+    .modal.open { display: flex; }
+    .modal-card {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+      width: min(1000px, 92vw); max-height: 82vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--shadow);
+    }
+    .modal-header, .modal-footer { padding: 12px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .modal-header h4 { margin: 0; font-size: 16px; }
+    .modal-body { padding: 12px; overflow: auto; display: grid; gap: 12px; background: var(--panel-2); }
+    .preview-page { border: 1px dashed var(--border); background: #fff; padding: 6px; border-radius: 10px; }
+    .preview-page img { width: 100%; display: block; background: #fff; }
+
+    @media (max-width: 980px) {
+      .app { grid-template-columns: 1fr; grid-template-areas: "topbar" "main"; }
+      .sidebar { display: none; }
     }
 
-    input[type=checkbox]::after {
-      background-color: #fff;
-      border-radius: 50%;
-      content: "";
-      height: 14px;
-      left: 3px;
-      position: absolute;
-      top: 3px;
-      width: 14px;
+    .print-root {
+      position: fixed; top: -20000px; left: -20000px; width: 794px; background: #ffffff; color: #0b0e13; z-index: -1;
     }
-
-    .checkbox-wrapper-2 input[type=checkbox] {
-      cursor: default;
+    .print-header {
+      display: flex; align-items: center; justify-content: space-between; padding: 16px; border-bottom: 2px solid #e1e6f0;
     }
+    .print-header-left { display: flex; align-items: center; gap: 12px; }
+    .print-seal { width: 64px; height: 64px; border-radius: 8px; overflow: hidden; border: 1px solid #dbe3f1; display: grid; place-items: center; background: #fff; }
+    .print-seal img { width: 100%; height: 100%; object-fit: cover; }
+    .print-title { font-size: 18px; font-weight: 700; letter-spacing: 0.3px; }
+    .print-subtitle { font-size: 12px; color: #455269; }
+    .print-section { padding: 14px 16px; border-bottom: 1px solid #eef2f8; }
+    .print-grid-2 { display: grid; grid-template-columns: 180px 1fr; gap: 16px; }
+    .print-avatar { width: 180px; height: 180px; border-radius: 12px; overflow: hidden; border: 1px solid #dbe3f1; display: grid; place-items: center; background: #f9fbff; }
+    .print-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .print-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .print-table th, .print-table td { border: 1px solid #dbe3f1; padding: 6px 8px; text-align: left; }
+    .print-thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .print-thumb { width: 100%; padding-top: 100%; position: relative; border: 1px solid #dbe3f1; border-radius: 10px; overflow: hidden; background: #f9fbff; }
+    .print-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .print-evidences { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .print-evidence { border: 1px solid #dbe3f1; border-radius: 10px; overflow: hidden; background: #fff; }
+    .print-evidence .img { width: 100%; padding-top: 100%; position: relative; background: #f9fbff; }
+    .print-evidence .img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .print-evidence .desc { padding: 8px; font-size: 12px; border-top: 1px solid #eef2f8; }
+    .print-notes { font-size: 12px; line-height: 1.55; }
+    .print-footer { padding: 10px 16px; border-top: 1px solid #eef2f8; font-size: 11px; color: #5a6883; }
 
-    input[type=checkbox]:hover {
-      background-color: #c9cbcd;
-      transition-duration: 0s;
-    }
-
-    input[type=checkbox]:checked {
-      background-color: #6e79d6;
-    }
-
-    input[type=checkbox]:checked::after {
-      background-color: #fff;
-      left: 13px;
-    }
-
-    .checkbox-wrapper-2 :focus:not(.focus-visible) {
-      outline: 0;
-    }
-
-    input[type=checkbox]:checked:hover {
-      background-color: #535db3;
+    .print-root.watermark::before {
+      content: "CONFIDENCIAL";
+      position: fixed; top: 40%; left: 50%;
+      transform: translate(-50%, -50%) rotate(-30deg);
+      font-size: 120px; font-weight: 700; color: rgba(200,0,0,0.08);
+      pointer-events: none; z-index: 0;
     }
   </style>
 </head>
 <body>
-  <div id="saveStatus">✔ Salvo!</div>
-
-  <main class="container">
-    <section class="card toolbar">
-      <div class="search">
-        <input id="searchInput" placeholder="Pesquisar por nome, discord, observação (atalho: /)" />
-        <select id="filterPeriodo">
-          <option value="">Período</option>
-          <option value="manha">Manhã</option>
-          <option value="tarde">Tarde</option>
-          <option value="noite">Noite</option>
-        </select>
-        <select id="filterStatus">
-          <option value="">Status</option>
-          <option value="aprovado">Aprovado</option>
-          <option value="negado">Negado</option>
-          <option value="pendente">Pendente</option>
-        </select>
+  <div class="app">
+    <div class="topbar">
+      <div class="title">
+        <i class="fa-solid fa-shield-halved"></i>
+        <span>Dossiê LSPD</span>
       </div>
-      <div class="chip" id="dirtyStatus">Alterações não salvas…</div>
-      <button class="btn" id="themeToggle" title="Alternar tema">🌗 Tema</button>
-      <button class="btn" id="exportBtn" title="Exportar JSON/CSV">⬇️ Exportar</button>
-      <label class="btn" for="importFile" title="Importar JSON">⬆️ Importar</label>
-      <input id="importFile" type="file" accept="application/json" hidden />
-    </section>
-
-    <!-- View: Cadastro -->
-    <section id="cadastroView" class="view card">
-      <h1>Nova Inscrição</h1>
-      <form id="inscriptionForm" novalidate>
-        <div>
-          <input id="nome" name="nome" placeholder="Nome Completo" required minlength="2" />
-          <div class="error" data-error-for="nome"></div>
-        </div>
-        <div>
-          <input id="idade" name="idade" type="number" placeholder="Idade" required min="1" max="120" />
-          <div class="error" data-error-for="idade"></div>
-        </div>
-        <div>
-          <input id="discord" name="discord" placeholder="Discord (opcional)" />
-          <div class="field-hint">Ex: seuNick#0000</div>
-        </div>
-        <div class="checkbox-group full">
-          <span>Período:</span>
-          <label><input type="checkbox" name="periodo" value="manha"> Manhã</label>
-          <label><input type="checkbox" name="periodo" value="tarde"> Tarde</label>
-          <label><input type="checkbox" name="periodo" value="noite"> Noite</label>
-        </div>
-        <div>
-          <input id="data" name="data" type="date" />
-        </div>
-        <div>
-          <input id="hora" name="hora" type="time" />
-        </div>
-        <div class="full">
-          <textarea id="observacao" name="observacao" placeholder="Observações (opcional)…" rows="3"></textarea>
-        </div>
-        <div class="full" style="display:flex; gap:10px;">
-          <button class="btn btn-primary" type="submit">Adicionar Inscrição</button>
-          <button class="btn" type="reset">Limpar</button>
-        </div>
-      </form>
-    </section>
-
-    <!-- View: Visualização / Edição -->
-    <section id="visualizacaoView" class="view card active">
-      <h1>Inscrições Recebidas</h1>
-      <div class="table-container">
-        <table id="dataTable">
-          <thead>
-            <tr>
-              <th>Ações</th>
-              <th class="sortable" data-sort="nome">Nome <span class="dir"></span></th>
-              <th class="sortable" data-sort="idade">Idade <span class="dir"></span></th>
-              <th class="sortable" data-sort="discord">Discord <span class="dir"></span></th>
-              <th>Data Entrevista</th>
-              <th>Hora Entrevista</th>
-              <th>Manhã</th>
-              <th>Tarde</th>
-              <th>Noite</th>
-              <th class="sortable" data-sort="aprovado">Aprovado <span class="dir"></span></th>
-              <th class="sortable" data-sort="negado">Negado <span class="dir"></span></th>
-              <th class="sortable" data-sort="entrevistador">Entrevistador <span class="dir"></span></th>
-              <th class="sortable" data-sort="observacao">Observação <span class="dir"></span></th>
-            </tr>
-          </thead>
-          <tbody id="tableBody"></tbody>
-        </table>
-      </div>
-      <div class="pagination">
-        <label>
-          <select id="pageSize">
-            <option>10</option>
-            <option selected>25</option>
-            <option>50</option>
-            <option>100</option>
-          </select>
+      <div class="controls top-actions">
+        <button id="toggleThemeBtn" class="btn btn-ghost"><i class="fa-solid fa-moon"></i> Tema escuro</button>
+        <button id="exportJsonBtn" class="btn btn-alt"><i class="fa-solid fa-file-export"></i> Exportar Dossiê (JSON)</button>
+        <label class="btn btn-ghost" style="position: relative; overflow: hidden;">
+          <i class="fa-solid fa-file-import"></i> Importar Dossiê (JSON)
+          <input id="importJsonInput" type="file" accept="application/json" style="position:absolute; inset:0; opacity:0; cursor:pointer;">
         </label>
-        <button class="btn" id="prevPage">◀</button>
-        <span id="pageInfo" class="chip">Página 1/1</span>
-        <button class="btn" id="nextPage">▶</button>
+        <button id="previewPdfBtn" class="btn btn-primary"><i class="fa-solid fa-file-pdf"></i> Pré-visualizar PDF</button>
       </div>
-    </section>
-  </main>
+    </div>
 
-  <!-- FAB -->
-  <button id="fab" class="fab" title="Alternar Visualização"></button>
+    <aside class="sidebar">
+      <div class="section">
+        <div class="section-header">
+          <h3>Dados do alvo</h3>
+          <button class="collapse-btn" data-collapse="target"><i class="fa-solid fa-chevron-up"></i></button>
+        </div>
+        <div class="section-body" id="section-target">
+          <div class="row">
+            <div class="field">
+              <label>Nome completo</label>
+              <input id="alvoNome" type="text" placeholder="John Doe" />
+              <div class="error-msg" data-error-for="alvoNome">Campo obrigatório.</div>
+            </div>
+            <div class="field">
+              <label>Apelido</label>
+              <input id="alvoApelido" type="text" placeholder="JD / Wolf" />
+            </div>
+          </div>
 
-  <!-- Modal de Confirmação -->
-  <dialog id="confirmDialog">
-    <form method="dialog">
-      <h3 style="margin-bottom:8px;">Confirmar exclusão</h3>
-      <p id="confirmText" style="margin-bottom:14px; color: var(--secondary-text);">Tem certeza que deseja deletar esta inscrição? Esta ação não pode ser desfeita.</p>
-      <div style="display:flex; gap:10px; justify-content:flex-end;">
-        <button class="btn" value="cancel">Cancelar</button>
-        <button class="btn btn-danger" value="confirm">Deletar</button>
+          <div class="row">
+            <div class="field">
+              <label>Endereço</label>
+              <input id="alvoEndereco" type="text" placeholder="Rua, número, bairro, cidade" />
+            </div>
+            <div class="field">
+              <label>Último visto</label>
+              <input id="alvoUltimoVisto" type="text" placeholder="Data/local do último avistamento" />
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="field">
+              <label>Link da Foto do Alvo (URL ou Ctrl+V)</label>
+              <input id="alvoFotoUrl" type="url" placeholder="https://..." />
+              <div class="error-msg" data-error-for="alvoFotoUrl">URL inválida ou imagem indisponível.</div>
+            </div>
+            <div class="field">
+              <label>Preview</label>
+              <div class="avatar" id="alvoFotoPreview"><span class="thumb-placeholder">Sem imagem</span></div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="field">
+              <label>Número do Caso</label>
+              <input id="numeroCaso" type="text" placeholder="LSPD-2025-0001" />
+              <div class="error-msg" data-error-for="numeroCaso">Campo obrigatório.</div>
+            </div>
+            <div class="field">
+              <label>Status da Investigação</label>
+              <select id="statusInvestigacao">
+                <option>Aberto</option>
+                <option>Em Andamento</option>
+                <option>Pausado</option>
+                <option>Fechado</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Data de Criação do Relatório</label>
+            <input id="dataCriacao" type="text" readonly />
+          </div>
+        </div>
       </div>
-    </form>
-  </dialog>
 
+      <div class="section">
+        <div class="section-header">
+          <h3>Múltiplos veículos</h3>
+          <button class="collapse-btn" data-collapse="vehicles"><i class="fa-solid fa-chevron-up"></i></button>
+        </div>
+        <div class="section-body" id="section-vehicles">
+          <div class="row">
+            <div class="field">
+              <label>Placa</label>
+              <input id="veiculoPlaca" type="text" placeholder="ABC-1234" />
+              <div class="error-msg" data-error-for="veiculoPlaca">Campo obrigatório.</div>
+            </div>
+            <div class="field">
+              <label>Modelo</label>
+              <input id="veiculoModelo" type="text" placeholder="Sedan Preto" />
+              <div class="error-msg" data-error-for="veiculoModelo">Campo obrigatório.</div>
+            </div>
+          </div>
+          <div class="row-auto">
+            <button id="addVehicleBtn" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Adicionar veículo</button>
+          </div>
+          <div class="list" id="vehiclesList"></div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="section">
+        <div class="section-header">
+          <h3>Múltiplas conexões</h3>
+          <button class="collapse-btn" data-collapse="connections"><i class="fa-solid fa-chevron-up"></i></button>
+        </div>
+        <div class="section-body" id="section-connections">
+          <div class="row">
+            <div class="field">
+              <label>Nome da conexão</label>
+              <input id="conexaoNome" type="text" placeholder="Jane Roe" />
+              <div class="error-msg" data-error-for="conexaoNome">Campo obrigatório.</div>
+            </div>
+            <div class="field">
+              <label>Função (role)</label>
+              <input id="conexaoFuncao" type="text" placeholder="Parceiro / Informante" />
+              <div class="error-msg" data-error-for="conexaoFuncao">Campo obrigatório.</div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label>Link da Foto (URL ou Ctrl+V)</label>
+              <input id="conexaoFotoUrl" type="url" placeholder="https://..." />
+            </div>
+            <div class="field">
+              <label>Preview</label>
+              <div class="thumb" id="conexaoFotoPreview"><span class="thumb-placeholder">Sem imagem</span></div>
+            </div>
+          </div>
+          <div class="row-auto">
+            <button id="addConnectionBtn" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> Adicionar conexão</button>
+          </div>
+          <div class="list" id="connectionsList"></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">
+          <h3>Múltiplas evidências</h3>
+          <button class="collapse-btn" data-collapse="evidences"><i class="fa-solid fa-chevron-up"></i></button>
+        </div>
+        <div class="section-body" id="section-evidences">
+          <div class="row">
+            <div class="field">
+              <label>Descrição da evidência</label>
+              <input id="evidenciaDescricao" type="text" placeholder="Foto do alvo entrando no veículo..." />
+              <div class="error-msg" data-error-for="evidenciaDescricao">Campo obrigatório.</div>
+            </div>
+            <div class="field">
+              <label>Link da Foto/Evidência (URL ou Ctrl+V)</label>
+              <input id="evidenciaFotoUrl" type="url" placeholder="https://..." />
+            </div>
+          </div>
+          <div class="row-auto">
+            <button id="addEvidenceBtn" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Adicionar evidência</button>
+          </div>
+          <div class="list" id="evidencesList"></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">
+          <h3>Timeline / ações</h3>
+          <button class="collapse-btn" data-collapse="timeline"><i class="fa-solid fa-chevron-up"></i></button>
+        </div>
+        <div class="section-body" id="section-timeline">
+          <div class="row">
+            <div class="field">
+              <label>Data/Hora</label>
+              <input id="timelineDataHora" type="text" placeholder="27/09/2025 12:34" />
+              <div class="error-msg" data-error-for="timelineDataHora">Campo obrigatório.</div>
+            </div>
+            <div class="field">
+              <label>Ação</label>
+              <input id="timelineAcao" type="text" placeholder="Alvo observado na Av. ..." />
+              <div class="error-msg" data-error-for="timelineAcao">Campo obrigatório.</div>
+            </div>
+          </div>
+          <div class="row-auto">
+            <button id="addTimelineBtn" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Adicionar linha</button>
+          </div>
+          <div class="list" id="timelineList"></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">
+          <h3>Notas do detetive / editor</h3>
+          <button class="collapse-btn" data-collapse="editor"><i class="fa-solid fa-chevron-up"></i></button>
+        </div>
+        <div class="section-body" id="section-editor">
+          <div class="editor-container">
+            <div id="editorToolbar">
+              <span class="ql-formats">
+                <select class="ql-size">
+                  <option value="small"></option>
+                  <option selected></option>
+                  <option value="large"></option>
+                </select>
+              </span>
+              <span class="ql-formats">
+                <button class="ql-bold"></button>
+                <button class="ql-italic"></button>
+              </span>
+              <span class="ql-formats">
+                <button class="ql-list" value="ordered"></button>
+                <button class="ql-list" value="bullet"></button>
+              </span>
+            </div>
+            <div id="editorArea"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Toasts -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Modal de pré-visualização -->
+  <div class="modal" id="previewModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h4>Pré-visualização do PDF</h4>
+        <button class="btn btn-ghost" id="closePreviewBtn"><i class="fa-solid fa-xmark"></i> Fechar</button>
+      </div>
+      <div class="modal-body" id="previewPagesContainer"></div>
+      <div class="modal-footer">
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-primary" id="downloadPdfBtn"><i class="fa-solid fa-download"></i> Baixar PDF</button>
+          <button class="btn btn-ghost" id="rebuildPreviewBtn"><i class="fa-solid fa-rotate-right"></i> Regerar prévia</button>
+        </div>
+        <div style="color:var(--muted); font-size:12px;">PDF usa tema claro e inclui marca d'água, selo e numeração.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Offscreen print-friendly root -->
+  <div class="print-root watermark" id="printRoot" aria-hidden="true"></div>
+
+  <!-- Quill -->
+  <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
   <script>
-    // =========================================================
-    // Utilidades
-    // =========================================================
-    const $ = (sel, el = document) => el.querySelector(sel);
-    const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
-    const DB_KEY = 'localInscriptionsDB';
-    const BACKUP_KEY_PREFIX = 'localInscriptionsDB_backup_';
-    const THEME_KEY = 'themePreference';
+    // =========================
+    // Constantes e utilidades
+    // =========================
 
-    const icons = {
-      add: `<svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>`,
-      list: `<svg viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>`
-    };
+    const STORAGE_KEY = 'lspd_dossie_v1';
 
-    // Sanitização básica para contenteditable
-    const sanitize = (str) => (str ?? '').toString().replace(/[<>]/g, '');
+    // Selo LSPD em PNG DataURL (substitua por outro dataURL PNG/JPEG se desejar)
+    // Este é um PNG simples com fundo azul e letras LSPD, apenas para fins de exemplo.
+    const LSPD_SEAL_DATAURL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsSAAALEgHS3X78AAABcUlEQVR4nO2ZMU7DQBCEv+oFQHkS7kBEcCkS3kB0Qm2m6u1DqR3yq3Nw5Jq0KpQQ5Q6b8bFQxX5b0bFtvJ4fQ3Vn8iXG1O3rjz8i5kQmVQmS3Sdwgq9jQkq0btYp3p8S3G2HqfBfG8xg2g6vY5vI0i5g7wR8I4b2MsnW9iD1JvJ2Kk6yqIu8pM8yCqQqTqHh3mR4aYV3wCwQd3p7Qe8L9GJfQvG6Wm4CkH8lQJc5Q6b5wYyJfomjvKfQWfJv6QH0qk3QeGqg7D3P8rH8b3mJ8j7Qv8Q0mQmQ2t6YwE3Vf9rO1xK3mQW8zW8r5lG3wJbCN+G3Ih5zv8qA2P4cY0c9LJHk1M3JZkAqCw2pS0Q6uDqPj1m7Xl3o5oYwHeZ4HfV3m3mJco2kEo7V6oKkCj1KpRqgqkKoKpAqgqlJkMqzH9FfH2nD9l3z4m3uF8vB6jH1p3B3kCkCkCkCkCkCkCkCkCkCkCkCkCkKkH8B6lqNf0b3E0AAAAAElFTkSuQmCC';
 
-    // Debounce util
-    const debounce = (fn, wait = 300) => {
-      let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); };
-    };
+    const $ = sel => document.querySelector(sel);
+    const $$ = sel => Array.from(document.querySelectorAll(sel));
 
-    // Data helpers
-    const toBool = (v) => v === true || v === 'true';
+    function toast(msg, type='success') {
+      const cont = $('#toastContainer');
+      const el = document.createElement('div');
+      el.className = 'toast' + (type === 'error' ? ' error' : '');
+      el.textContent = msg;
+      cont.appendChild(el);
+      setTimeout(() => {
+        el.style.transition = 'opacity 200ms ease, transform 200ms ease';
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(10px)';
+        setTimeout(() => el.remove(), 220);
+      }, 2400);
+    }
 
-    // =========================================================
-    // Estado Global
-    // =========================================================
-    let database = [];
-    let currentView = 'visualizacao';
-    let dirty = false; // Alterações não salvas
+    function validateRequired(inputEl) {
+      const ok = !!inputEl.value.trim();
+      const em = document.querySelector('.error-msg[data-error-for="' + inputEl.id + '"]');
+      if (!ok) { inputEl.classList.add('error'); if (em) em.style.display = 'block'; }
+      else { inputEl.classList.remove('error'); if (em) em.style.display = 'none'; }
+      return ok;
+    }
 
-    // Filtro/Ordenação/Paginação
-    let searchQuery = '';
-    let filterPeriodo = '';
-    let filterStatus = '';
-    let sortField = 'dataEnvio';
-    let sortDir = 'asc';
-    let page = 1;
-    let pageSize = 25;
-
-    // Elementos
-    const fab = $('#fab');
-    const form = $('#inscriptionForm');
-    const tableBody = $('#tableBody');
-    const saveStatus = $('#saveStatus');
-    const dirtyStatus = $('#dirtyStatus');
-
-    const searchInput = $('#searchInput');
-    const filterPeriodoEl = $('#filterPeriodo');
-    const filterStatusEl = $('#filterStatus');
-    const pageSizeEl = $('#pageSize');
-    const prevPageBtn = $('#prevPage');
-    const nextPageBtn = $('#nextPage');
-    const pageInfo = $('#pageInfo');
-
-    const themeToggle = $('#themeToggle');
-    const exportBtn = $('#exportBtn');
-    const importFile = $('#importFile');
-    const confirmDialog = $('#confirmDialog');
-    const confirmText = $('#confirmText');
-
-    // =========================================================
-    // Persistência com Debounce + Backup
-    // =========================================================
-    const saveDatabaseNow = () => {
-      localStorage.setItem(DB_KEY, JSON.stringify(database));
-      createBackup();
-      dirty = false; updateDirtyUI();
-      saveStatus.classList.add('visible');
-      setTimeout(() => saveStatus.classList.remove('visible'), 1300);
-    };
-    const saveDatabase = debounce(saveDatabaseNow, 400);
-
-    const createBackup = () => {
-      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-      try { localStorage.setItem(`${BACKUP_KEY_PREFIX}${stamp}`, JSON.stringify(database)); } catch(e) {}
-      // Rotaciona (mantém só os 5 mais recentes)
-      const backups = Object.keys(localStorage).filter(k => k.startsWith(BACKUP_KEY_PREFIX)).sort().reverse();
-      backups.slice(5).forEach(k => localStorage.removeItem(k));
-    };
-
-    const loadDatabase = () => {
-      const data = localStorage.getItem(DB_KEY);
-      database = data ? JSON.parse(data) : [];
-    };
-
-    const markDirty = () => { dirty = true; updateDirtyUI(); };
-    const updateDirtyUI = () => {
-      dirtyStatus.classList.toggle('on', dirty);
-      window.onbeforeunload = dirty ? () => true : null;
-    };
-
-    // =========================================================
-    // Tema
-    // =========================================================
-    const applyTheme = (t) => document.documentElement.setAttribute('data-theme', t);
-    const loadTheme = () => { const t = localStorage.getItem(THEME_KEY) || 'dark'; applyTheme(t); };
-    const toggleTheme = () => {
-      const current = document.documentElement.getAttribute('data-theme');
-      const next = current === 'dark' ? 'light' : 'dark';
-      applyTheme(next); localStorage.setItem(THEME_KEY, next);
-    };
-
-    // =========================================================
-    // Navegação entre views
-    // =========================================================
-    const switchView = (viewName) => {
-      currentView = viewName;
-      $$('.view').forEach(v => v.classList.remove('active'));
-      if (viewName === 'visualizacao') {
-        $('#visualizacaoView').classList.add('active');
-        fab.innerHTML = icons.add; fab.title = 'Nova Inscrição';
-        render();
-      } else {
-        $('#cadastroView').classList.add('active');
-        fab.innerHTML = icons.list; fab.title = 'Ver Inscrições';
-        $('#nome')?.focus();
-      }
-    };
-
-    fab.addEventListener('click', () => switchView(currentView === 'visualizacao' ? 'cadastro' : 'visualizacao'));
-
-    // =========================================================
-    // Formulário: Validação + Criação
-    // =========================================================
-    const showError = (id, msg) => { const el = document.querySelector(`[data-error-for="${id}"]`); if (el) el.textContent = msg || ''; };
-    const clearErrors = () => $$('.error').forEach(e => e.textContent = '');
-
-    form?.addEventListener('submit', (e) => {
-      e.preventDefault();
-      clearErrors();
-
-      const nome = sanitize($('#nome').value.trim());
-      const idadeVal = parseInt($('#idade').value, 10);
-      const discord = sanitize($('#discord').value.trim());
-      const data = $('#data').value || '';
-      const hora = $('#hora').value || '';
-      const periodos = $$('input[name="periodo"]:checked').map(cb => cb.value);
-      const manha = periodos.includes('manha');
-      const tarde = periodos.includes('tarde');
-      const noite = periodos.includes('noite');
-      const observacao = sanitize($('#observacao').value);
-
-      let valid = true;
-      if (nome.length < 2) { showError('nome','Informe um nome válido.'); valid = false; }
-      if (!(idadeVal > 0 && idadeVal <= 120)) { showError('idade','Idade deve ser entre 1 e 120.'); valid = false; }
-      if (data && !/^\d{4}-\d{2}-\d{2}$/.test(data)) { valid = false; }
-      if (hora && !/^\d{2}:\d{2}$/.test(hora)) { valid = false; }
-      if (!valid) return;
-
-      const newEntry = {
-        id: Date.now().toString(),
-        nome, idade: idadeVal, discord,
-        data, hora,
-        manha, tarde, noite,
-        aprovado: false, negado: false, entrevistador: '',
-        observacao,
-        dataEnvio: new Date().toISOString(),
-        rowColor: ''
-      };
-      database.push(newEntry);
-      markDirty(); saveDatabase();
-      form.reset();
-      switchView('visualizacao');
-    });
-
-    // =========================================================
-    // Renderização: filtros, ordenação, paginação
-    // =========================================================
-    const filteredSorted = () => {
-      let data = [...database];
-      // Busca
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        data = data.filter(item => [item.nome, item.discord, item.observacao].some(v => (v||'').toLowerCase().includes(q)));
-      }
-      // Filtros
-      if (filterPeriodo) data = data.filter(i => !!i[filterPeriodo]);
-      if (filterStatus) {
-        if (filterStatus === 'pendente') data = data.filter(i => !i.aprovado && !i.negado);
-        else data = data.filter(i => !!i[filterStatus]);
-      }
-      // Ordenação
-      data.sort((a,b) => {
-        let av = a[sortField], bv = b[sortField];
-        if (sortField === 'idade') { av = Number(av)||0; bv = Number(bv)||0; }
-        const dir = sortDir === 'asc' ? 1 : -1;
-        if (av == null && bv == null) return 0;
-        if (av == null) return 1;
-        if (bv == null) return -1;
-        if (av > bv) return dir;
-        if (av < bv) return -dir;
-        return 0;
+    function blobToDataURL(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
       });
-      return data;
-    };
+    }
 
-    const render = () => {
-      const data = filteredSorted();
-      // Paginação
-      const total = data.length;
-      const pages = Math.max(1, Math.ceil(total / pageSize));
-      page = Math.min(Math.max(1, page), pages);
-      const start = (page - 1) * pageSize;
-      const end = start + pageSize;
-      const slice = data.slice(start, end);
-
-      tableBody.innerHTML = '';
-      if (!slice.length) {
-        tableBody.innerHTML = `<tr><td colspan="13" style="text-align:center; padding:36px;">Nenhuma inscrição encontrada.</td></tr>`;
-      } else {
-        slice.forEach(item => tableBody.appendChild(buildRow(item)));
-      }
-      pageInfo.textContent = `Página ${page}/${pages} — ${total} registro(s)`;
-      // Atualiza setas
-      prevPageBtn.disabled = page <= 1; nextPageBtn.disabled = page >= pages;
-      updateSortHeaders();
-    };
-
-    const buildRow = (item) => {
-      const tr = document.createElement('tr');
-      tr.dataset.id = item.id; tr.className = item.rowColor ? `color-${item.rowColor}` : '';
-      tr.innerHTML = `
-        <td class="action-cell">
-          <div class="color-palette">${createColorPaletteHTML(item.rowColor)}</div>
-          <button class="delete-btn">Excluir</button>
-        </td>
-        <td contenteditable="true" data-field="nome">${escapeHTML(item.nome || '')}</td>
-        <td contenteditable="true" data-field="idade">${escapeHTML(item.idade?.toString() || '')}</td>
-        <td contenteditable="true" data-field="discord">${escapeHTML(item.discord || '')}</td>
-        <td><input type="date" data-field="data" value="${item.data || ''}"></td>
-        <td><input type="time" data-field="hora" value="${item.hora || ''}"></td>
-        <td><input type="checkbox" data-field="manha" ${item.manha ? 'checked' : ''}></td>
-        <td><input type="checkbox" data-field="tarde" ${item.tarde ? 'checked' : ''}></td>
-        <td><input type="checkbox" data-field="noite" ${item.noite ? 'checked' : ''}></td>
-        <td><input type="checkbox" data-field="aprovado" ${item.aprovado ? 'checked' : ''}></td>
-        <td><input type="checkbox" data-field="negado" ${item.negado ? 'checked' : ''}></td>
-        <td contenteditable="true" data-field="entrevistador">${escapeHTML(item.entrevistador || '')}</td>
-        <td contenteditable="true" data-field="observacao">${escapeHTML(item.observacao || '')}</td>
-      `;
-      return tr;
-    };
-
-    const createColorPaletteHTML = (selected) => ['blue','green','yellow','red','orange']
-      .map(c => `<div class="color-dot dot-${c} ${selected===c?'active':''}" data-color="${c}"></div>`)
-      .join('');
-
-    const updateSortHeaders = () => {
-      $$('#dataTable th.sortable').forEach(th => {
-        const dirEl = $('.dir', th); dirEl.textContent = '';
-        if (th.dataset.sort === sortField) dirEl.textContent = sortDir === 'asc' ? '▲' : '▼';
-      });
-    };
-
-    const escapeHTML = (s) => sanitize(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-
-    // =========================================================
-    // Interações na Tabela (delegation)
-    // =========================================================
-    tableBody.addEventListener('blur', (e) => {
-      if (e.target.isContentEditable) {
-        const tr = e.target.closest('tr');
-        const id = tr.dataset.id; const field = e.target.dataset.field; const value = sanitize(e.target.textContent.trim());
-        updateItem(id, field, field === 'idade' ? Number(value)||'' : value);
-      }
-    }, true);
-
-    tableBody.addEventListener('change', (e) => {
-      const tr = e.target.closest('tr'); if (!tr) return;
-      const id = tr.dataset.id; const field = e.target.dataset.field;
-      if (e.target.type === 'checkbox') {
-        updateItem(id, field, !!e.target.checked);
-        if (field === 'aprovado' && e.target.checked) { // exclusão mútua
-          updateItem(id, 'negado', false, {silent: true});
-          tr.querySelector('input[data-field="negado"]').checked = false;
-        }
-        if (field === 'negado' && e.target.checked) {
-          updateItem(id, 'aprovado', false, {silent: true});
-          tr.querySelector('input[data-field="aprovado"]').checked = false;
-        }
-      } else if (e.target.type === 'date' || e.target.type === 'time') {
-        updateItem(id, field, e.target.value);
-      }
-    });
-
-    tableBody.addEventListener('click', (e) => {
-      const colorDot = e.target.closest('.color-dot');
-      const delBtn = e.target.closest('.delete-btn');
-      const tr = e.target.closest('tr');
-      if (!tr) return;
-      const id = tr.dataset.id;
-
-      if (colorDot) {
-        const color = colorDot.dataset.color;
-        const item = database.find(i => i.id === id);
-        const next = item.rowColor === color ? '' : color;
-        updateItem(id, 'rowColor', next);
-        // Atualiza UI rapidamente
-        tr.className = next ? `color-${next}` : '';
-        tr.querySelectorAll('.color-dot').forEach(dot => dot.classList.toggle('active', dot.dataset.color === next));
-      }
-
-      if (delBtn) {
-        confirmText.textContent = 'Tem certeza que deseja deletar esta inscrição? Esta ação não pode ser desfeita.';
-        confirmDialog.showModal();
-        confirmDialog.onclose = () => {
-          if (confirmDialog.returnValue === 'confirm') {
-            database = database.filter(i => i.id !== id);
-            markDirty(); saveDatabase();
-            render();
-          }
-        };
-      }
-    });
-
-    // Ordenação por cabeçalho
-    $('#dataTable thead').addEventListener('click', (e) => {
-      const th = e.target.closest('th.sortable'); if (!th) return;
-      const f = th.dataset.sort;
-      if (sortField === f) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
-      else { sortField = f; sortDir = 'asc'; }
-      render();
-    });
-
-    // =========================================================
-    // Atualização de Item
-    // =========================================================
-    const updateItem = (id, field, value, {silent=false}={}) => {
-      const idx = database.findIndex(i => i.id === id); if (idx === -1) return;
-      database[idx][field] = value;
-      if (!silent) { markDirty(); saveDatabase(); }
-    };
-
-    // =========================================================
-    // Filtros/Busca/Paginação
-    // =========================================================
-    searchInput.addEventListener('input', debounce((e) => { searchQuery = e.target.value.trim(); page = 1; render(); }, 250));
-    filterPeriodoEl.addEventListener('change', (e) => { filterPeriodo = e.target.value; page = 1; render(); });
-    filterStatusEl.addEventListener('change', (e) => { filterStatus = e.target.value; page = 1; render(); });
-
-    pageSizeEl.addEventListener('change', (e) => { pageSize = parseInt(e.target.value, 10); page = 1; render(); });
-    prevPageBtn.addEventListener('click', () => { page = Math.max(1, page - 1); render(); });
-    nextPageBtn.addEventListener('click', () => { page = page + 1; render(); });
-
-    // =========================================================
-    // Exportar / Importar
-    // =========================================================
-    exportBtn.addEventListener('click', () => {
-      const data = filteredSorted();
-      // JSON
-      downloadFile('inscricoes.json', JSON.stringify(data, null, 2), 'application/json');
-      // CSV
-      const csv = toCSV(data);
-      downloadFile('inscricoes.csv', csv, 'text/csv');
-    });
-
-    importFile.addEventListener('change', async (e) => {
-      const file = e.target.files?.[0]; if (!file) return;
+    async function tryFetchToDataURL(url) {
       try {
-        const text = await file.text();
-        const arr = JSON.parse(text);
-        if (!Array.isArray(arr)) throw new Error('JSON inválido');
-        // Merge simples: adiciona IDs novos, atualiza se existir
-        const map = new Map(database.map(i => [i.id, i]));
-        for (const rec of arr) {
-          if (!rec.id) rec.id = String(Date.now() + Math.random());
-          map.set(rec.id, {...map.get(rec.id), ...rec});
+        const resp = await fetch(url, { mode: 'cors' });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const blob = await resp.blob();
+        return await blobToDataURL(blob);
+      } catch (e) {
+        console.warn('Falha ao converter URL em DataURL (CORS?):', e);
+        return null;
+      }
+    }
+
+    function setSquareImage(containerEl, dataUrl) {
+      containerEl.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = dataUrl;
+      containerEl.appendChild(img);
+    }
+
+    function setPlaceholder(containerEl, message='Imagem indisponível') {
+      containerEl.innerHTML = '';
+      const span = document.createElement('span');
+      span.className = 'thumb-placeholder';
+      span.textContent = message;
+      containerEl.appendChild(span);
+    }
+
+    async function handlePasteImageToInput(e, previewEl) {
+      const cd = e.clipboardData || (e.originalEvent && e.originalEvent.clipboardData);
+      if (!cd || !cd.items) return;
+      for (const item of cd.items) {
+        if (item.kind === 'file') {
+          const file = item.getAsFile();
+          if (file && file.type.startsWith('image/')) {
+            const dataUrl = await blobToDataURL(file);
+            e.target.value = dataUrl;
+            if (previewEl) setSquareImage(previewEl, dataUrl);
+            updateStateFromUI();
+            saveData();
+            toast('Imagem colada');
+            e.preventDefault();
+            return;
+          }
         }
-        database = [...map.values()];
-        markDirty(); saveDatabase();
-        render();
-      } catch (err) { alert('Falha ao importar: ' + err.message); }
-      finally { e.target.value = ''; }
-    });
+      }
+    }
 
-    const toCSV = (rows) => {
-      const headers = ['id','nome','idade','discord','data','hora','manha','tarde','noite','aprovado','negado','entrevistador','observacao','dataEnvio','rowColor'];
-      const escape = (v) => '"' + (String(v ?? '').replace(/"/g,'""')) + '"';
-      const lines = [headers.join(',')];
-      for (const r of rows) lines.push(headers.map(h => escape(r[h])).join(','));
-      return lines.join('\n');
+    // =========================
+    // Estado do dossiê
+    // =========================
+
+    const state = {
+      alvo: {
+        nome: '',
+        apelido: '',
+        endereco: '',
+        ultimoVisto: '',
+        foto: '',
+        numeroCaso: '',
+        status: 'Aberto',
+        dataCriacao: ''
+      },
+      veiculos: [],
+      conexoes: [],
+      evidencias: [],
+      timeline: [],
+      notasHtml: ''
     };
 
-    const downloadFile = (name, content, type) => {
-      const blob = new Blob([content], {type});
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob); a.download = name; a.click();
-      URL.revokeObjectURL(a.href);
-    };
+    // =========================
+    // Editor (Quill)
+    // =========================
+    let quill;
 
-    // =========================================================
-    // Atalhos de Teclado
-    // =========================================================
-    document.addEventListener('keydown', (e) => {
-      // Salvar: Ctrl/Cmd + S
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveDatabaseNow(); }
-      // Nova inscrição: Ctrl/Cmd + N
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') { e.preventDefault(); switchView('cadastro'); }
-      // Foco busca: /
-      if (!e.ctrlKey && !e.metaKey && e.key === '/') { e.preventDefault(); searchInput.focus(); }
-    });
+    function initEditor() {
+      quill = new Quill('#editorArea', {
+        modules: { toolbar: '#editorToolbar' },
+        theme: 'snow'
+      });
+      quill.on('text-change', () => {
+        const editorEl = document.querySelector('#editorArea .ql-editor');
+        state.notasHtml = editorEl.innerHTML;
+        saveData();
+      });
+    }
 
-    // =========================================================
-    // Inicialização
-    // =========================================================
+    // =========================
+    // Autosave de todos inputs
+    // =========================
+
+    function bindAutoSave() {
+      document.querySelectorAll('input, select, textarea').forEach(el => {
+        el.addEventListener('input', () => { updateStateFromUI(); saveData(); });
+        el.addEventListener('change', () => { updateStateFromUI(); saveData(); });
+      });
+    }
+
+    function updateStateFromUI() {
+      state.alvo.nome = $('#alvoNome').value;
+      state.alvo.apelido = $('#alvoApelido').value;
+      state.alvo.endereco = $('#alvoEndereco').value;
+      state.alvo.ultimoVisto = $('#alvoUltimoVisto').value;
+      state.alvo.foto = $('#alvoFotoUrl').value;
+      state.alvo.numeroCaso = $('#numeroCaso').value;
+      state.alvo.status = $('#statusInvestigacao').value;
+      state.alvo.dataCriacao = $('#dataCriacao').value;
+
+      const editorEl = document.querySelector('#editorArea .ql-editor');
+      if (editorEl) state.notasHtml = editorEl.innerHTML;
+    }
+
+    // =========================
+    // Inicialização geral
+    // =========================
+
+    function initUI() {
+      // Preenche data de criação se vazio
+      const dataStr = new Date().toLocaleString('pt-BR');
+      $('#dataCriacao').value = state.alvo.dataCriacao || dataStr;
+      if (!state.alvo.dataCriacao) state.alvo.dataCriacao = $('#dataCriacao').value;
+
+      // Collapse
+      $$('.collapse-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const target = btn.getAttribute('data-collapse');
+          const section = document.querySelector('#section-' + target);
+          if (!section) return;
+          const parent = section.closest('.section');
+          parent.classList.toggle('collapsed');
+          btn.innerHTML = parent.classList.contains('collapsed')
+            ? '<i class="fa-solid fa-chevron-down"></i>'
+            : '<i class="fa-solid fa-chevron-up"></i>';
+        });
+      });
+
+      // Tema
+      $('#toggleThemeBtn').addEventListener('click', () => {
+        document.body.classList.toggle('light');
+        $('#toggleThemeBtn').innerHTML = document.body.classList.contains('light')
+          ? '<i class="fa-solid fa-sun"></i> Tema claro'
+          : '<i class="fa-solid fa-moon"></i> Tema escuro';
+      });
+
+      // Inputs alvo
+      $('#alvoNome').addEventListener('input', () => { validateRequired($('#alvoNome')); });
+      $('#numeroCaso').addEventListener('input', () => { validateRequired($('#numeroCaso')); });
+
+      // Foto do alvo
+      $('#alvoFotoUrl').addEventListener('input', async (e) => {
+        const url = e.target.value.trim();
+        if (!url) { state.alvo.foto = ''; setPlaceholder($('#alvoFotoPreview')); saveData(); return; }
+        let dataUrl = null;
+        if (url.startsWith('data:image/')) dataUrl = url;
+        else dataUrl = await tryFetchToDataURL(url);
+        if (dataUrl) {
+          state.alvo.foto = dataUrl;
+          setSquareImage($('#alvoFotoPreview'), dataUrl);
+          toast('Foto do alvo atualizada');
+        } else {
+          state.alvo.foto = url; // manter URL para fallback
+          setPlaceholder($('#alvoFotoPreview'), 'Imagem remota (tentaremos incorporar)');
+        }
+        saveData();
+      });
+      $('#alvoFotoUrl').addEventListener('paste', (e) => handlePasteImageToInput(e, $('#alvoFotoPreview')));
+
+      // Veículos
+      $('#addVehicleBtn').addEventListener('click', addVehicle);
+      $('#veiculoPlaca').addEventListener('keydown', (e) => { if (e.key === 'Enter') addVehicle(); });
+      $('#veiculoModelo').addEventListener('keydown', (e) => { if (e.key === 'Enter') addVehicle(); });
+
+      // Conexões
+      $('#addConnectionBtn').addEventListener('click', addConnection);
+      $('#conexaoNome').addEventListener('keydown', (e) => { if (e.key === 'Enter') addConnection(); });
+      $('#conexaoFuncao').addEventListener('keydown', (e) => { if (e.key === 'Enter') addConnection(); });
+      $('#conexaoFotoUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') addConnection(); });
+
+      $('#conexaoFotoUrl').addEventListener('input', async (e) => {
+        const url = e.target.value.trim();
+        if (!url) { setPlaceholder($('#conexaoFotoPreview')); return; }
+        let dataUrl = null;
+        if (url.startsWith('data:image/')) dataUrl = url;
+        else dataUrl = await tryFetchToDataURL(url);
+        if (dataUrl) setSquareImage($('#conexaoFotoPreview'), dataUrl);
+        else setPlaceholder($('#conexaoFotoPreview'), 'Imagem remota (tentaremos incorporar)');
+      });
+      $('#conexaoFotoUrl').addEventListener('paste', (e) => handlePasteImageToInput(e, $('#conexaoFotoPreview')));
+
+      // Evidências
+      $('#addEvidenceBtn').addEventListener('click', addEvidence);
+      $('#evidenciaDescricao').addEventListener('keydown', (e) => { if (e.key === 'Enter') addEvidence(); });
+      $('#evidenciaFotoUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') addEvidence(); });
+      $('#evidenciaFotoUrl').addEventListener('paste', (e) => handlePasteImageToInput(e, null));
+
+      // Timeline
+      $('#addTimelineBtn').addEventListener('click', addTimeline);
+      $('#timelineDataHora').addEventListener('keydown', (e) => { if (e.key === 'Enter') addTimeline(); });
+      $('#timelineAcao').addEventListener('keydown', (e) => { if (e.key === 'Enter') addTimeline(); });
+
+      // Export / Import
+      $('#exportJsonBtn').addEventListener('click', exportJson);
+      $('#importJsonInput').addEventListener('change', importJson);
+
+      // Preview / Download
+      $('#previewPdfBtn').addEventListener('click', buildPreviewModal);
+      $('#closePreviewBtn').addEventListener('click', () => $('#previewModal').classList.remove('open'));
+      $('#rebuildPreviewBtn').addEventListener('click', buildPreviewModal);
+      $('#downloadPdfBtn').addEventListener('click', downloadPdfConfirmed);
+    }
+
+    // =========================
+    // Veículos
+    // =========================
+
+    function addVehicle() {
+      const placaEl = $('#veiculoPlaca');
+      const modeloEl = $('#veiculoModelo');
+      const validPlaca = validateRequired(placaEl);
+      const validModelo = validateRequired(modeloEl);
+      if (!validPlaca || !validModelo) { toast('Preencha placa e modelo', 'error'); return; }
+      const item = { placa: placaEl.value.trim(), modelo: modeloEl.value.trim() };
+      state.veiculos.push(item);
+      renderVehicles();
+      placaEl.value = ''; modeloEl.value = '';
+      saveData();
+      toast('Veículo adicionado');
+    }
+
+    function renderVehicles() {
+      const list = $('#vehiclesList');
+      list.innerHTML = '';
+      state.veiculos.forEach((v, idx) => {
+        const li = document.createElement('div');
+        li.className = 'list-item';
+        li.innerHTML = `
+          <div class="item-content">
+            <div><strong>${v.placa}</strong></div>
+            <div style="color:var(--muted); font-size:12px;">${v.modelo}</div>
+          </div>
+          <div class="item-actions">
+            <button class="btn btn-ghost btn-remove"><i class="fa-solid fa-trash"></i> Remover</button>
+          </div>
+        `;
+        li.querySelector('.btn-remove').addEventListener('click', function() {
+          state.veiculos.splice(idx, 1);
+          this.parentElement.parentElement.remove();
+          saveData();
+          renderVehicles();
+          toast('Veículo removido');
+        });
+        list.appendChild(li);
+      });
+    }
+
+    // =========================
+    // Conexões
+    // =========================
+
+    async function addConnection() {
+      const nomeEl = $('#conexaoNome');
+      const funcaoEl = $('#conexaoFuncao');
+      const fotoEl = $('#conexaoFotoUrl');
+      const vNome = validateRequired(nomeEl);
+      const vFuncao = validateRequired(funcaoEl);
+      if (!vNome || !vFuncao) { toast('Preencha nome e função da conexão', 'error'); return; }
+
+      let foto = fotoEl.value.trim();
+      if (foto && !foto.startsWith('data:image/')) {
+        const dataUrl = await tryFetchToDataURL(foto);
+        if (dataUrl) foto = dataUrl;
+      }
+
+      const item = { nome: nomeEl.value.trim(), funcao: funcaoEl.value.trim(), foto };
+      state.conexoes.push(item);
+      renderConnections();
+      nomeEl.value = '';
+      funcaoEl.value = '';
+      fotoEl.value = '';
+      setPlaceholder($('#conexaoFotoPreview'));
+      saveData();
+      toast('Conexão adicionada');
+    }
+
+    function renderConnections() {
+      const list = $('#connectionsList');
+      list.innerHTML = '';
+      state.conexoes.forEach((c, idx) => {
+        const li = document.createElement('div');
+        li.className = 'list-item';
+        const thumbHtml = c.foto
+          ? `<div class="thumb"><img src="${c.foto}" /></div>`
+          : `<div class="thumb"><span class="thumb-placeholder">Sem imagem</span></div>`;
+        li.innerHTML = `
+          ${thumbHtml}
+          <div class="item-content">
+            <div><strong>${c.nome}</strong> <span style="color:var(--muted); font-size:12px;">(${c.funcao})</span></div>
+          </div>
+          <div class="item-actions">
+            <button class="btn btn-ghost btn-remove"><i class="fa-solid fa-trash"></i> Remover</button>
+          </div>
+        `;
+        li.querySelector('.btn-remove').addEventListener('click', function() {
+          state.conexoes.splice(idx, 1);
+          this.parentElement.parentElement.remove();
+          saveData();
+          renderConnections();
+          toast('Conexão removida');
+        });
+        list.appendChild(li);
+      });
+    }
+
+    // =========================
+    // Evidências
+    // =========================
+
+    async function addEvidence() {
+      const descEl = $('#evidenciaDescricao');
+      const fotoEl = $('#evidenciaFotoUrl');
+      const vDesc = validateRequired(descEl);
+      if (!vDesc) { toast('Descrição é obrigatória', 'error'); return; }
+
+      let foto = fotoEl.value.trim();
+      if (foto && !foto.startsWith('data:image/')) {
+        const dataUrl = await tryFetchToDataURL(foto);
+        if (dataUrl) foto = dataUrl;
+      }
+      const item = { descricao: descEl.value.trim(), foto };
+      state.evidencias.push(item);
+      renderEvidences();
+      descEl.value = '';
+      fotoEl.value = '';
+      saveData();
+      toast('Evidência adicionada');
+    }
+
+    function renderEvidences() {
+      const list = $('#evidencesList');
+      list.innerHTML = '';
+      state.evidencias.forEach((evi, idx) => {
+        const li = document.createElement('div');
+        li.className = 'list-item';
+        const thumbHtml = evi.foto
+          ? `<div class="thumb"><img src="${evi.foto}" /></div>`
+          : `<div class="thumb"><span class="thumb-placeholder">Sem imagem</span></div>`;
+        li.innerHTML = `
+          ${thumbHtml}
+          <div class="item-content">
+            <div><strong>${evi.descricao}</strong></div>
+          </div>
+          <div class="item-actions">
+            <button class="btn btn-ghost btn-remove"><i class="fa-solid fa-trash"></i> Remover</button>
+          </div>
+        `;
+        li.querySelector('.btn-remove').addEventListener('click', function() {
+          state.evidencias.splice(idx, 1);
+          this.parentElement.parentElement.remove();
+          saveData();
+          renderEvidences();
+          toast('Evidência removida');
+        });
+        list.appendChild(li);
+      });
+    }
+
+    // =========================
+    // Timeline
+    // =========================
+
+    function addTimeline() {
+      const dataEl = $('#timelineDataHora');
+      const acaoEl = $('#timelineAcao');
+      const vData = validateRequired(dataEl);
+      const vAcao = validateRequired(acaoEl);
+      if (!vData || !vAcao) { toast('Preencha data/hora e ação', 'error'); return; }
+
+      const item = { dataHora: dataEl.value.trim(), acao: acaoEl.value.trim() };
+      state.timeline.push(item);
+      renderTimeline();
+      dataEl.value = '';
+      acaoEl.value = '';
+      saveData();
+      toast('Linha adicionada');
+    }
+
+    function renderTimeline() {
+      const list = $('#timelineList');
+      list.innerHTML = '';
+      state.timeline.forEach((t, idx) => {
+        const li = document.createElement('div');
+        li.className = 'list-item';
+        li.innerHTML = `
+          <div class="item-content">
+            <div><strong>${t.dataHora}</strong></div>
+            <div style="color:var(--muted); font-size:12px;">${t.acao}</div>
+          </div>
+          <div class="item-actions">
+            <button class="btn btn-ghost btn-remove"><i class="fa-solid fa-trash"></i> Remover</button>
+          </div>
+        `;
+        li.querySelector('.btn-remove').addEventListener('click', function() {
+          state.timeline.splice(idx, 1);
+          this.parentElement.parentElement.remove();
+          saveData();
+          renderTimeline();
+          toast('Linha removida');
+        });
+        list.appendChild(li);
+      });
+    }
+
+    // =========================
+    // Salvamento Local
+    // =========================
+
+    function saveData() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch (e) {
+        console.warn('Falha ao salvar localmente', e);
+      }
+    }
+
+    function loadData() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const data = JSON.parse(raw);
+
+        // Merge seguro
+        state.alvo = { ...state.alvo, ...(data.alvo || {}) };
+        state.veiculos = Array.isArray(data.veiculos) ? data.veiculos : [];
+        state.conexoes = Array.isArray(data.conexoes) ? data.conexoes : [];
+        state.evidencias = Array.isArray(data.evidencias) ? data.evidencias : [];
+        state.timeline = Array.isArray(data.timeline) ? data.timeline : [];
+        state.notasHtml = data.notasHtml || '';
+
+        // Repopular UI
+        $('#alvoNome').value = state.alvo.nome || '';
+        $('#alvoApelido').value = state.alvo.apelido || '';
+        $('#alvoEndereco').value = state.alvo.endereco || '';
+        $('#alvoUltimoVisto').value = state.alvo.ultimoVisto || '';
+        $('#alvoFotoUrl').value = state.alvo.foto || '';
+        $('#numeroCaso').value = state.alvo.numeroCaso || '';
+        $('#statusInvestigacao').value = state.alvo.status || 'Aberto';
+        $('#dataCriacao').value = state.alvo.dataCriacao || new Date().toLocaleString('pt-BR');
+
+        if (state.alvo.foto) setSquareImage($('#alvoFotoPreview'), state.alvo.foto);
+        else setPlaceholder($('#alvoFotoPreview'));
+
+        renderVehicles();
+        renderConnections();
+        renderEvidences();
+        renderTimeline();
+
+        if (state.notasHtml) {
+          const editorEl = document.querySelector('#editorArea .ql-editor');
+          if (editorEl) editorEl.innerHTML = state.notasHtml;
+        }
+
+        toast('Dossiê carregado');
+      } catch (e) {
+        console.warn('Falha ao carregar dados', e);
+      }
+    }
+
+    // =========================
+    // Exportar / Importar JSON
+    // =========================
+
+    function exportJson() {
+      try {
+        const dataStr = JSON.stringify(state, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const num = state.alvo.numeroCaso ? state.alvo.numeroCaso.replace(/\s+/g,'_') : 'sem-numero';
+        a.download = `dossie_lspd_${num}.json`;
+        a.href = url;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast('JSON exportado');
+      } catch (e) {
+        toast('Falha ao exportar JSON', 'error');
+      }
+    }
+
+    function importJson(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          // Substitui estado completamente por importado
+          state.alvo = data.alvo || state.alvo;
+          state.veiculos = Array.isArray(data.veiculos) ? data.veiculos : [];
+          state.conexoes = Array.isArray(data.conexoes) ? data.conexoes : [];
+          state.evidencias = Array.isArray(data.evidencias) ? data.evidencias : [];
+          state.timeline = Array.isArray(data.timeline) ? data.timeline : [];
+          state.notasHtml = data.notasHtml || '';
+
+          saveData();
+          loadData();
+          toast('JSON importado');
+        } catch (err) {
+          toast('Falha ao importar JSON', 'error');
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    }
+
+    // =========================
+    // Print HTML (tema claro offscreen)
+    // =========================
+
+    function buildPrintHTML() {
+      const root = $('#printRoot');
+      root.innerHTML = '';
+
+      const header = document.createElement('div');
+      header.className = 'print-header';
+      header.innerHTML = `
+        <div class="print-header-left">
+          <div class="print-seal"><img src="${LSPD_SEAL_DATAURL}" /></div>
+          <div>
+            <div class="print-title">Departamento de Polícia de Los Santos</div>
+            <div class="print-subtitle">Relatório de Investigação — Caso ${state.alvo.numeroCaso || 'N/D'}</div>
+          </div>
+        </div>
+        <div class="print-header-right">
+          <div class="print-subtitle">Status: ${state.alvo.status}</div>
+          <div class="print-subtitle">Criado: ${state.alvo.dataCriacao}</div>
+        </div>
+      `;
+      root.appendChild(header);
+
+      const fotoAlvo = state.alvo.foto;
+      const alvoImgHtml = fotoAlvo && fotoAlvo.startsWith('data:image/')
+        ? `<img src="${fotoAlvo}" />`
+        : (fotoAlvo ? `<img src="${fotoAlvo}" crossorigin="anonymous" />`
+                    : '<div class="thumb-placeholder" style="font-size:12px;">Sem imagem</div>');
+
+      const secAlvo = document.createElement('div');
+      secAlvo.className = 'print-section';
+      secAlvo.innerHTML = `
+        <h3 style="margin:0 0 8px 0; font-size:14px;">Alvo</h3>
+        <div class="print-grid-2">
+          <div class="print-avatar">
+            ${alvoImgHtml}
+          </div>
+          <div>
+            <div><strong>Nome:</strong> ${state.alvo.nome || '—'}</div>
+            <div><strong>Apelido:</strong> ${state.alvo.apelido || '—'}</div>
+            <div><strong>Endereço:</strong> ${state.alvo.endereco || '—'}</div>
+            <div><strong>Último visto:</strong> ${state.alvo.ultimoVisto || '—'}</div>
+            <div style="margin-top:8px;"><strong>Nº Caso:</strong> ${state.alvo.numeroCaso || '—'}</div>
+          </div>
+        </div>
+      `;
+      root.appendChild(secAlvo);
+
+      const secVeic = document.createElement('div');
+      secVeic.className = 'print-section';
+      secVeic.innerHTML = `
+        <h3 style="margin:0 0 8px 0; font-size:14px;">Veículos</h3>
+        <table class="print-table">
+          <thead>
+            <tr><th>Placa</th><th>Modelo</th></tr>
+          </thead>
+          <tbody>
+            ${state.veiculos.length ? state.veiculos.map(v => `<tr><td>${v.placa}</td><td>${v.modelo}</td></tr>`).join('') : '<tr><td colspan="2">Nenhum veículo</td></tr>'}
+          </tbody>
+        </table>
+      `;
+      root.appendChild(secVeic);
+
+      const secCon = document.createElement('div');
+      secCon.className = 'print-section';
+      secCon.innerHTML = `
+        <h3 style="margin:0 0 8px 0; font-size:14px;">Conexões</h3>
+        <div class="print-thumbs">
+          ${state.conexoes.length ? state.conexoes.map(c => `
+            <div>
+              <div class="print-thumb">
+                ${c.foto ? (c.foto.startsWith('data:image/') ? `<img src="${c.foto}" />` : `<img src="${c.foto}" crossorigin="anonymous" />`) : ''}
+              </div>
+              <div style="font-size:12px; margin-top:6px;"><strong>${c.nome}</strong><br/><span style="color:#5a6883">${c.funcao}</span></div>
+            </div>
+          `).join('') : '<div style="font-size:12px; color:#5a6883;">Nenhuma conexão</div>'}
+        </div>
+      `;
+      root.appendChild(secCon);
+
+      const secEvi = document.createElement('div');
+      secEvi.className = 'print-section';
+      secEvi.innerHTML = `
+        <h3 style="margin:0 0 8px 0; font-size:14px;">Evidências</h3>
+        <div class="print-evidences">
+          ${state.evidencias.length ? state.evidencias.map(e => `
+            <div class="print-evidence">
+              <div class="img">
+                ${e.foto ? (e.foto.startsWith('data:image/') ? `<img src="${e.foto}" />` : `<img src="${e.foto}" crossorigin="anonymous" />`) : ''}
+              </div>
+              <div class="desc">${e.descricao}</div>
+            </div>
+          `).join('') : '<div style="font-size:12px; color:#5a6883;">Nenhuma evidência</div>'}
+        </div>
+      `;
+      root.appendChild(secEvi);
+
+      const secTime = document.createElement('div');
+      secTime.className = 'print-section';
+      secTime.innerHTML = `
+        <h3 style="margin:0 0 8px 0; font-size:14px;">Timeline</h3>
+        <table class="print-table">
+          <thead><tr><th>Data/Hora</th><th>Ação</th></tr></thead>
+          <tbody>
+            ${state.timeline.length ? state.timeline.map(t => `<tr><td>${t.dataHora}</td><td>${t.acao}</td></tr>`).join('') : '<tr><td colspan="2">Nenhuma linha</td></tr>'}
+          </tbody>
+        </table>
+      `;
+      root.appendChild(secTime);
+
+      const secNotas = document.createElement('div');
+      secNotas.className = 'print-section';
+      secNotas.innerHTML = `
+        <h3 style="margin:0 0 8px 0; font-size:14px;">Notas do detetive</h3>
+        <div class="print-notes">${state.notasHtml || '<span style="color:#5a6883;">Sem notas</span>'}</div>
+      `;
+      root.appendChild(secNotas);
+
+      const footer = document.createElement('div');
+      footer.className = 'print-footer';
+      footer.textContent = 'Departamento de Polícia de Los Santos — Relatório confidencial.';
+      root.appendChild(footer);
+    }
+
+    // =========================
+    // Pré-visualização (html2canvas em páginas)
+    // =========================
+
+    async function buildPreviewModal() {
+      const okNome = validateRequired($('#alvoNome'));
+      const okCaso = validateRequired($('#numeroCaso'));
+      if (!okNome || !okCaso) {
+        toast('Preencha os campos obrigatórios antes de gerar PDF', 'error');
+        return;
+      }
+
+      buildPrintHTML();
+      const root = $('#printRoot');
+
+      const canvas = await html2canvas(root, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        useCORS: true
+      });
+
+      const pages = sliceCanvasIntoA4Pages(canvas);
+      const cont = $('#previewPagesContainer');
+      cont.innerHTML = '';
+      pages.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'preview-page';
+        const img = document.createElement('img');
+        img.src = p.toDataURL('image/png');
+        div.appendChild(img);
+        cont.appendChild(div);
+      });
+
+      $('#previewModal').classList.add('open');
+      toast('Prévia gerada');
+    }
+
+    function sliceCanvasIntoA4Pages(canvas) {
+      const a4w = 794 * 2;
+      const a4h = 1123 * 2;
+      const pages = [];
+      let offsetY = 0;
+      while (offsetY < canvas.height) {
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = a4w;
+        pageCanvas.height = a4h;
+        const ctx = pageCanvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, a4w, a4h);
+        ctx.drawImage(canvas, 0, offsetY, a4w, a4h, 0, 0, a4w, a4h);
+        pages.push(pageCanvas);
+        offsetY += a4h;
+      }
+      return pages;
+    }
+
+    // =========================
+    // Download do PDF (jsPDF)
+    // =========================
+
+    async function downloadPdfConfirmed() {
+      const root = $('#printRoot');
+      const canvas = await html2canvas(root, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        useCORS: true
+      });
+      const pages = sliceCanvasIntoA4Pages(canvas);
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+
+      for (let i = 0; i < pages.length; i++) {
+        if (i > 0) doc.addPage();
+        const imgData = pages[i].toDataURL('image/png');
+        doc.addImage(imgData, 'PNG', 0, 0, pageWidth, pageHeight);
+
+        doc.setTextColor(90);
+        doc.setFontSize(9);
+        doc.text(`Página ${i+1} de ${pages.length}`, pageWidth - 30, pageHeight - 6);
+
+        doc.setTextColor(230, 200, 200);
+        doc.setFontSize(48);
+        doc.saveGraphicsState();
+        doc.setGState(new doc.GState({ opacity: 0.08 }));
+        doc.text('CONFIDENCIAL', pageWidth/2, pageHeight/2, { angle: -30, align: 'center' });
+        doc.restoreGraphicsState();
+      }
+
+      const num = state.alvo.numeroCaso ? state.alvo.numeroCaso.replace(/\s+/g,'_') : 'sem-numero';
+      doc.save(`dossie_lspd_${num}.pdf`);
+      toast('PDF baixado');
+      $('#previewModal').classList.remove('open');
+    }
+
+    // =========================
+    // Boot
+    // =========================
+
     document.addEventListener('DOMContentLoaded', () => {
-      loadTheme();
-      loadDatabase();
-      switchView('visualizacao');
+      initEditor();
+      initUI();
+      loadData();
+      bindAutoSave();
     });
-
-    themeToggle.addEventListener('click', toggleTheme);
   </script>
 </body>
 </html>
