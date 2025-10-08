@@ -270,6 +270,7 @@
         <span>Dossiê LSPD</span>
       </div>
       <div class="controls top-actions">
+        <button class="btn red" id="clearAllBtn"><i class="fa-solid fa-trash"></i> Apagar tudo</button>
         <button id="toggleThemeBtn" class="btn btn-ghost"><i class="fa-solid fa-moon"></i> Tema escuro</button>
         <button id="exportJsonBtn" class="btn btn-alt"><i class="fa-solid fa-file-export"></i> Exportar Dossiê (JSON)</button>
         <label class="btn btn-ghost" style="position: relative; overflow: hidden;">
@@ -558,6 +559,12 @@
         reader.readAsDataURL(blob);
       });
     }
+
+    $('#clearAllBtn').addEventListener('click', () => {
+      if (!confirm('Tem certeza que deseja apagar todos os dados? Esta ação não pode ser desfeita.')) return;
+      localStorage.removeItem(STORAGE_KEY);
+      location.reload();
+    });
 
     async function tryFetchToDataURL(url) {
       try {
