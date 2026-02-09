@@ -1,1319 +1,1182 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Dossiê LSPD — Ferramenta de Investigação</title>
-
-  <!--
-  INSTRUÇÕES RÁPIDAS
-  - Colar imagem: Clique no campo de "Link da Foto" e pressione Ctrl+V com a imagem no clipboard.
-    O sistema converte para DataURL automaticamente e salva no campo e no preview.
-  - Exportar/Importar JSON: Use os botões no topo. O arquivo JSON inclui todos os campos, listas e HTML do editor.
-  - Tema Escuro: Clique no botão "Tema Escuro" para alternar. O PDF sempre sairá com tema claro.
-  - Geração de PDF: Clique "Pré-visualizar PDF" para ver as páginas renderizadas e depois "Baixar PDF".
-    O PDF é real e multi-página (jsPDF + html2canvas), com marca d'água CONFIDENCIAL, selo LSPD, cabeçalho e rodapé.
-  - CORS e Imagens:
-    * Preferimos DataURL (colando imagens ou quando o fetch consegue converter URL remota em DataURL).
-    * Se fetch falhar por CORS, tentamos html2canvas com useCORS:true.
-    * Se não for possível incorporar a imagem, usamos uma placeholder "Imagem indisponível".
-  - Seções: É possível colapsar/expandir cada seção clicando no ícone do título.
-  - Atalhos: Pressionar Enter nos campos adiciona veículos, conexões, evidências e timeline.
-  - Salvamento: Tudo salva automaticamente no localStorage a cada alteração e recarrega ao abrir a página.
-
-  MODO 100% OFFLINE (EMBUTIR LIBS)
-  - Para usar totalmente offline (sem CDN):
-    1) Baixe Quill, Font Awesome, jsPDF e html2canvas.
-    2) Coloque seus conteúdos inline em <style> e <script> ou converta em DataURL base64.
-    3) Substitua os links de CDN por blocos inline.
-    4) Alternativa: crie uma flag embedLibs=true e carregue blocos inline condicionais.
-
-  TROCAR O SELO LSPD
-  - A logo do PDF foi atualizada com um PNG embutido em DataURL. Para trocar por outro,
-    substitua a constante LSPD_SEAL_DATAURL por um dataURL PNG/JPEG.
-  -->
-
-  <!-- Font & Icons -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
-
-  <!-- Quill -->
-  <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
-
-  <!-- jsPDF + html2canvas -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Avaliação Cadet / Solo Cadet — LEO (EUA)</title>
   <style>
-    :root {
-      --bg: #0f1216;
-      --panel: #141923;
-      --panel-2: #1a2130;
-      --text: #e8edf5;
-      --muted: #aab3c0;
-      --accent: #4da3ff;
-      --accent-2: #ff6b6b;
-      --success: #44d19f;
-      --border: #2a3342;
-      --btn-primary: #4da3ff;
-      --btn-alt: #6c7a92;
-      --btn-ghost: transparent;
-      --btn-text: #0b0e13;
-      --shadow: 0 6px 20px rgba(0,0,0,0.35);
+    :root{
+      --bg:#071012;
+      --card:#0b1a1c;
+      --card2:#0d2023;
+      --text:#e7f3f3;
+      --muted:#a9c7c7;
+      --aqua:#25d6c7;
+      --aqua2:#18b7aa;
+      --border:rgba(37,214,199,.22);
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --danger:#ff6b6b;
+      --ok:#65f0c8;
+      --warn:#ffd166;
     }
-    body.light {
-      --bg: #f4f6fb;
-      --panel: #ffffff;
-      --panel-2: #f7f9fc;
-      --text: #0b0e13;
-      --muted: #51607a;
-      --accent: #1f6feb;
-      --accent-2: #c62828;
-      --success: #2e7d32;
-      --border: #d6deeb;
-      --btn-primary: #1f6feb;
-      --btn-alt: #48566b;
-      --btn-ghost: transparent;
-      --btn-text: #ffffff;
-      --shadow: 0 6px 20px rgba(0,0,0,0.15);
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      background:
+        radial-gradient(900px 450px at 15% 10%, rgba(37,214,199,.12), transparent 60%),
+        radial-gradient(900px 450px at 85% 10%, rgba(24,183,170,.10), transparent 60%),
+        var(--bg);
+      background-attachment: fixed;
+      color:var(--text);
+      font: 14.5px/1.55 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+    header{
+      padding: 28px 16px 8px;
+      max-width: 980px;
+      margin: 0 auto;
+    }
+    h1{
+      margin:0 0 8px;
+      font-weight: 800;
+      letter-spacing:.2px;
+      font-size: clamp(20px, 2.6vw, 30px);
+    }
+    .sub{
+      color: var(--muted);
+      max-width: 74ch;
+      margin: 0 0 16px;
+    }
+    main{
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 0 16px 40px;
+      display: grid;
+      gap: 14px;
     }
 
-    * { box-sizing: border-box; }
-    html, body {
-      height: 100%;
-      background: var(--bg);
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .card .hd{
+      padding: 14px 16px;
+      background: linear-gradient(90deg, rgba(37,214,199,.10), rgba(37,214,199,.03));
+      border-bottom: 1px solid var(--border);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .card .hd strong{font-size: 14px}
+    .badge{
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      background: rgba(37,214,199,.06);
+      white-space: nowrap;
+    }
+    .card .bd{padding: 14px 16px}
+
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 12px;
+    }
+    .field{grid-column: span 6}
+    .field.small{grid-column: span 3}
+    label{
+      display:block;
+      font-weight: 650;
+      margin-bottom: 6px;
       color: var(--text);
-      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+    input, select, textarea{
+      width:100%;
+      border-radius: 12px;
+      border: 1px solid rgba(37,214,199,.22);
+      background: rgba(7,16,18,.55);
+      color: var(--text);
+      padding: 10px 12px;
+      outline: none;
+    }
+    .help{
+      color: var(--muted);
+      font-size: 12.5px;
+      margin-top: 6px;
+    }
+
+    .q{
+      padding: 14px 16px;
+      border-top: 1px solid rgba(37,214,199,.10);
+      background: linear-gradient(180deg, rgba(11,26,28,.75), rgba(11,26,28,.5));
+    }
+    .q:first-child{border-top:none}
+    .q .qt{
+      display:flex;
+      gap: 10px;
+      align-items:flex-start;
+      justify-content:space-between;
+      margin-bottom: 10px;
+    }
+    .q .n{
+      min-width: 44px;
+      height: 28px;
+      border-radius: 999px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border: 1px solid rgba(37,214,199,.26);
+      color: var(--aqua);
+      background: rgba(37,214,199,.06);
+      font-weight: 800;
+      font-size: 12px;
+    }
+    .q h3{
+      margin: -2px 0 0;
+      font-size: 15px;
+      line-height: 1.35;
+      font-weight: 760;
+      flex: 1;
+    }
+    .options{
+      display:grid;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .opt{
+      border: 1px solid rgba(37,214,199,.16);
+      border-radius: 12px;
+      padding: 10px 12px;
+      display:flex;
+      gap: 10px;
+      align-items:flex-start;
+      background: rgba(13,32,35,.45);
+      transition: transform .08s ease, border-color .12s ease, background .12s ease;
+    }
+    .opt:hover{
+      border-color: rgba(37,214,199,.35);
+      background: rgba(13,32,35,.65);
+      transform: translateY(-1px);
+    }
+    .opt input{
+      width: 18px;
+      height: 18px;
+      margin-top: 2px;
+      accent-color: var(--aqua);
+      cursor:pointer;
+    }
+    .opt span{
+      color: var(--text);
+    }
+    #detailText {
+      white-space: pre-line;
+    }
+
+    .actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap: 10px;
+      align-items:center;
+      justify-content:space-between;
+      padding: 14px 16px;
+      border-top: 1px solid rgba(37,214,199,.12);
+      background: rgba(13,32,35,.35);
+    }
+    button{
+      appearance:none;
+      border: 1px solid rgba(37,214,199,.35);
+      background: linear-gradient(180deg, rgba(37,214,199,.20), rgba(37,214,199,.08));
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-weight: 760;
+      cursor:pointer;
+      transition: transform .08s ease, border-color .12s ease, background .12s ease;
+    }
+    button:hover{
+      border-color: rgba(37,214,199,.6);
+      transform: translateY(-1px);
+    }
+    button:disabled{
+      opacity:.55;
+      cursor:not-allowed;
+      transform:none;
+    }
+    .secondary{
+      border-color: rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04);
+      font-weight: 650;
+      color: var(--muted);
+    }
+
+    .result{
+      display:grid;
+      gap: 8px;
+      padding: 14px 16px;
+    }
+    .result .row{
+      display:flex;
+      flex-wrap:wrap;
+      gap: 10px;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .score{
+      font-size: 18px;
+      font-weight: 900;
+      letter-spacing: .2px;
+    }
+    .status{
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(37,214,199,.25);
+      background: rgba(37,214,199,.06);
+      color: var(--muted);
+      font-weight: 750;
+      font-size: 12px;
+    }
+    .status.ok{
+      border-color: rgba(101,240,200,.35);
+      background: rgba(101,240,200,.07);
+      color: var(--ok);
+    }
+    .status.warn{
+      border-color: rgba(255,209,102,.30);
+      background: rgba(255,209,102,.07);
+      color: var(--warn);
+    }
+    .status.bad{
+      border-color: rgba(255,107,107,.30);
+      background: rgba(255,107,107,.08);
+      color: var(--danger);
+    }
+    .smallprint{
+      color: var(--muted);
+      font-size: 12.5px;
       margin: 0;
     }
 
-    .app {
-      display: grid;
-      grid-template-columns: 320px 1fr;
-      grid-template-rows: auto 1fr;
-      grid-template-areas:
-        "topbar topbar"
-        "sidebar main";
-      height: 100vh;
-    }
-    .topbar {
-      grid-area: topbar;
-      background: var(--panel);
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 16px;
-      position: sticky;
-      top: 0;
-      z-index: 10;
-    }
-    .title { display: flex; align-items: center; gap: 12px; font-weight: 700; letter-spacing: 0.5px; }
-    .controls { display: flex; gap: 8px; align-items: center; }
-
-    .sidebar {
-      grid-area: sidebar;
-      background: var(--panel);
-      border-right: 1px solid var(--border);
-      padding: 16px;
-      overflow: auto;
-    }
-    .main {
-      grid-area: main;
-      padding: 16px;
-      background: var(--panel-2);
-      overflow: auto;
-    }
-
-    .section {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      box-shadow: var(--shadow);
-      margin-bottom: 16px;
-      overflow: hidden;
-    }
-    .section-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 14px;
-      border-bottom: 1px solid var(--border);
-      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0));
-    }
-    .section-header h3 { font-size: 15px; margin: 0; font-weight: 700; letter-spacing: 0.3px; }
-    .collapse-btn {
-      border: none; background: var(--btn-ghost); color: var(--muted);
-      cursor: pointer; padding: 6px 8px; border-radius: 8px;
-    }
-    .collapse-btn:hover { color: var(--text); background: rgba(255,255,255,0.06); }
-    .section-body { padding: 14px; display: grid; gap: 12px; }
-    .section.collapsed .section-body { display: none; }
-
-    .field { display: grid; gap: 6px; }
-    .field label { font-size: 12px; color: var(--muted); }
-    input[type="text"], input[type="url"], select, textarea {
-      background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
-      border-radius: 10px; padding: 10px 12px; outline: none; transition: border 0.2s, background 0.2s;
-    }
-    input::placeholder, textarea::placeholder { color: var(--muted); }
-    input:focus, textarea:focus, select:focus { border-color: var(--accent); background: #0f1520; }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .row-auto { display: flex; gap: 8px; flex-wrap: wrap; }
-    .error { border-color: var(--accent-2) !important; }
-    .error-msg { color: var(--accent-2); font-size: 12px; display:none; }
-
-    .btn {
-      border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;
-      cursor: pointer; font-weight: 600; font-size: 14px; transition: transform 0.02s, background 0.2s, color 0.2s, border 0.2s;
-      display: inline-flex; align-items: center; gap: 8px;
-    }
-    .btn:active { transform: translateY(1px); }
-    .btn-primary { background: var(--btn-primary); color: var(--btn-text); border-color: transparent; }
-    .btn-ghost { background: var(--btn-ghost); color: var(--text); }
-    .btn-alt { background: var(--btn-alt); color: #fff; border-color: transparent; }
-    .btn-danger { background: var(--accent-2); color: #fff; border-color: transparent; }
-
-    .avatar {
-      width: 120px; height: 120px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border);
-      display: grid; place-items: center; background: var(--panel-2);
-    }
-    .avatar img { width: 100%; height: 100%; object-fit: cover; }
-    .thumb {
-      width: 64px; height: 64px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border);
-      background: var(--panel-2); display: grid; place-items: center;
-    }
-    .thumb img { width: 100%; height: 100%; object-fit: cover; }
-    .thumb-placeholder { font-size: 10px; color: var(--muted); text-align: center; padding: 6px; }
-
-    .list { display: grid; gap: 8px; }
-    .list-item {
-      display: flex; align-items: center; gap: 10px; background: var(--panel-2);
-      border: 1px solid var(--border); border-radius: 10px; padding: 8px;
-    }
-    .item-content { flex: 1; display: grid; gap: 4px; }
-    .item-actions { display: flex; gap: 6px; }
-
-    .editor-container { background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-    .ql-toolbar.ql-snow { background: var(--panel-2); border: none; border-bottom: 1px solid var(--border); color: var(--text); }
-    .ql-container.ql-snow { border: none; background: #ffffff; color: #0b0e13; min-height: 220px; }
-
-    .toast-container { position: fixed; bottom: 20px; right: 20px; display: grid; gap: 8px; z-index: 1000; }
-    .toast {
-      background: var(--panel); color: var(--text); border: 1px solid var(--border);
-      border-left: 4px solid var(--success); padding: 10px 12px; border-radius: 10px; box-shadow: var(--shadow);
-      font-size: 14px; opacity: 0; transform: translateY(10px); animation: toastIn 200ms ease forwards;
-    }
-    .toast.error { border-left-color: var(--accent-2); }
-    @keyframes toastIn { to { opacity: 1; transform: translateY(0); } }
-
-    .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 2000; }
-    .modal.open { display: flex; }
-    .modal-card {
-      background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
-      width: min(1000px, 92vw); max-height: 82vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--shadow);
-    }
-    .modal-header, .modal-footer { padding: 12px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
-    .modal-header h4 { margin: 0; font-size: 16px; }
-    .modal-body { padding: 12px; overflow: auto; display: grid; gap: 12px; background: var(--panel-2); }
-    .preview-page { border: 1px dashed var(--border); background: #fff; padding: 6px; border-radius: 10px; }
-    .preview-page img { width: 100%; display: block; background: #fff; }
-
-    @media (max-width: 980px) {
-      .app { grid-template-columns: 1fr; grid-template-areas: "topbar" "main"; }
-      .sidebar { display: none; }
-    }
-
-    .print-root {
-      position: fixed; top: -20000px; left: -20000px; width: 794px; background: #ffffff; color: #0b0e13; z-index: -1;
-    }
-    .print-header {
-      display: flex; align-items: center; justify-content: space-between; padding: 16px; border-bottom: 2px solid #e1e6f0;
-    }
-    .print-header-left { display: flex; align-items: center; gap: 12px; }
-    .print-seal { width: 64px; height: 64px; border-radius: 8px; overflow: hidden; border: 1px solid #dbe3f1; display: grid; place-items: center; background: #fff; }
-    .print-seal img { width: 100%; height: 100%; object-fit: cover; }
-    .print-title { font-size: 18px; font-weight: 700; letter-spacing: 0.3px; }
-    .print-subtitle { font-size: 12px; color: #455269; }
-    .print-section { padding: 14px 16px; border-bottom: 1px solid #eef2f8; }
-    .print-grid-2 { display: grid; grid-template-columns: 180px 1fr; gap: 16px; }
-    .print-avatar { width: 180px; height: 180px; border-radius: 12px; overflow: hidden; border: 1px solid #dbe3f1; display: grid; place-items: center; background: #f9fbff; }
-    .print-avatar img { width: 100%; height: 100%; object-fit: cover; }
-    .print-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    .print-table th, .print-table td { border: 1px solid #dbe3f1; padding: 6px 8px; text-align: left; }
-    .print-thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-    .print-thumb { width: 100%; padding-top: 100%; position: relative; border: 1px solid #dbe3f1; border-radius: 10px; overflow: hidden; background: #f9fbff; }
-    .print-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-    .print-evidences { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-    .print-evidence { border: 1px solid #dbe3f1; border-radius: 10px; overflow: hidden; background: #fff; }
-    .print-evidence .img { width: 100%; padding-top: 100%; position: relative; background: #f9fbff; }
-    .print-evidence .img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-    .print-evidence .desc { padding: 8px; font-size: 12px; border-top: 1px solid #eef2f8; }
-    .print-notes { font-size: 12px; line-height: 1.55; }
-    .print-footer { padding: 10px 16px; border-top: 1px solid #eef2f8; font-size: 11px; color: #5a6883; }
-
-    .print-root.watermark::before {
-      content: "CONFIDENCIAL";
-      position: fixed; top: 40%; left: 50%;
-      transform: translate(-50%, -50%) rotate(-30deg);
-      font-size: 120px; font-weight: 700; color: rgba(200,0,0,0.08);
-      pointer-events: none; z-index: 0;
+    @media (max-width: 860px){
+      .field{grid-column: span 12}
+      .field.small{grid-column: span 6}
     }
   </style>
 </head>
+
 <body>
-  <div class="app">
-    <div class="topbar">
-      <div class="title">
-        <i class="fa-solid fa-shield-halved"></i>
-        <span>Dossiê LSPD</span>
+  <header>
+    <h1><div style="background: url('https://r2.fivemanage.com/image/JPNEVXYBJePj.png') no-repeat top center; background-size: contain; width: 100%; height: 150px; box-sizing: content-box; margin-bottom: 1em"></h1>
+  </header>
+
+  <main>
+    <form id="quizForm" class="card" autocomplete="off">
+      <div class="hd">
+        <strong>Dados do candidato</strong>
+        <span class="badge">Dados informados no RP</span>
       </div>
-      <div class="controls top-actions">
-        <button class="btn red" id="clearAllBtn"><i class="fa-solid fa-trash"></i> Apagar tudo</button>
-        <button id="toggleThemeBtn" class="btn btn-ghost"><i class="fa-solid fa-moon"></i> Tema escuro</button>
-        <button id="exportJsonBtn" class="btn btn-alt"><i class="fa-solid fa-file-export"></i> Exportar Dossiê (JSON)</button>
-        <label class="btn btn-ghost" style="position: relative; overflow: hidden;">
-          <i class="fa-solid fa-file-import"></i> Importar Dossiê (JSON)
-          <input id="importJsonInput" type="file" accept="application/json" style="position:absolute; inset:0; opacity:0; cursor:pointer;">
-        </label>
-        <button id="previewPdfBtn" class="btn btn-primary"><i class="fa-solid fa-file-pdf"></i> Pré-visualizar PDF</button>
-      </div>
-    </div>
 
-    <aside class="sidebar">
-      <div class="section">
-        <div class="section-header">
-          <h3>Dados do alvo</h3>
-          <button class="collapse-btn" data-collapse="target"><i class="fa-solid fa-chevron-up"></i></button>
-        </div>
-        <div class="section-body" id="section-target">
-          <div class="row">
-            <div class="field">
-              <label>Nome completo</label>
-              <input id="alvoNome" type="text" placeholder="John Doe" />
-              <div class="error-msg" data-error-for="alvoNome">Campo obrigatório.</div>
-            </div>
-            <div class="field">
-              <label>Apelido</label>
-              <input id="alvoApelido" type="text" placeholder="JD / Wolf" />
-            </div>
-          </div>
-
-          <div class="row">
-            <div class="field">
-              <label>Endereço</label>
-              <input id="alvoEndereco" type="text" placeholder="Rua, número, bairro, cidade" />
-            </div>
-            <div class="field">
-              <label>Último visto</label>
-              <input id="alvoUltimoVisto" type="text" placeholder="Data/local do último avistamento" />
-            </div>
-          </div>
-
-          <div class="row">
-            <div class="field">
-              <label>Link da Foto do Alvo (URL ou Ctrl+V)</label>
-              <input id="alvoFotoUrl" type="url" placeholder="https://..." />
-              <div class="error-msg" data-error-for="alvoFotoUrl">URL inválida ou imagem indisponível.</div>
-            </div>
-            <div class="field">
-              <label>Preview</label>
-              <div class="avatar" id="alvoFotoPreview"><span class="thumb-placeholder">Sem imagem</span></div>
-            </div>
-          </div>
-
-          <div class="row">
-            <div class="field">
-              <label>Número do Caso</label>
-              <input id="numeroCaso" type="text" placeholder="LSPD-2025-0001" />
-              <div class="error-msg" data-error-for="numeroCaso">Campo obrigatório.</div>
-            </div>
-            <div class="field">
-              <label>Status da Investigação</label>
-              <select id="statusInvestigacao">
-                <option>Aberto</option>
-                <option>Em Andamento</option>
-                <option>Pausado</option>
-                <option>Fechado</option>
-              </select>
-            </div>
+      <div class="bd">
+        <div class="grid">
+          <div class="field">
+            <label for="charName">Nome do personagem</label>
+            <input id="charName" name="charName" placeholder="Ex.: John Edwards" required />
           </div>
 
           <div class="field">
-            <label>Data de Criação do Relatório</label>
-            <input id="dataCriacao" type="text" readonly />
+            <label for="age">Idade</label>
+            <input id="age" name="age" type="number" min="16" max="90" placeholder="Ex.: 38" required />
+          </div>
+
+          <div class="field">
+            <label for="discord">Discord</label>
+            <input id="discord" name="discord" placeholder="Ex.: Raphael#1234 ou @raphael" required />
+          </div>
+
+          <div class="field">
+            <label for="fto">Oficial FTO</label>
+            <input id="fto" name="fto" placeholder="Ex.: Sgt. Silva" required />
+          </div>
+
+          <!-- <div class="field">
+            <label for="webhook">Discord Webhook (opcional)</label>
+            <input id="webhook" name="webhook" placeholder="Cole aqui o webhook do canal (opcional)" />
+            <div class="help">
+              Observação: enviar direto do navegador pode falhar por CORS/segurança. Se isso acontecer, use um proxy/backend.
+            </div> -->
           </div>
         </div>
       </div>
 
-      <div class="section">
-        <div class="section-header">
-          <h3>Múltiplos veículos</h3>
-          <button class="collapse-btn" data-collapse="vehicles"><i class="fa-solid fa-chevron-up"></i></button>
-        </div>
-        <div class="section-body" id="section-vehicles">
-          <div class="row">
-            <div class="field">
-              <label>Placa</label>
-              <input id="veiculoPlaca" type="text" placeholder="ABC-1234" />
-              <div class="error-msg" data-error-for="veiculoPlaca">Campo obrigatório.</div>
-            </div>
-            <div class="field">
-              <label>Modelo</label>
-              <input id="veiculoModelo" type="text" placeholder="Sedan Preto" />
-              <div class="error-msg" data-error-for="veiculoModelo">Campo obrigatório.</div>
-            </div>
-          </div>
-          <div class="row-auto">
-            <button id="addVehicleBtn" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Adicionar veículo</button>
-          </div>
-          <div class="list" id="vehiclesList"></div>
-        </div>
-      </div>
-    </aside>
-
-    <main class="main">
-      <div class="section">
-        <div class="section-header">
-          <h3>Múltiplas conexões</h3>
-          <button class="collapse-btn" data-collapse="connections"><i class="fa-solid fa-chevron-up"></i></button>
-        </div>
-        <div class="section-body" id="section-connections">
-          <div class="row">
-            <div class="field">
-              <label>Nome da conexão</label>
-              <input id="conexaoNome" type="text" placeholder="Jane Roe" />
-              <div class="error-msg" data-error-for="conexaoNome">Campo obrigatório.</div>
-            </div>
-            <div class="field">
-              <label>Função (role)</label>
-              <input id="conexaoFuncao" type="text" placeholder="Parceiro / Informante" />
-              <div class="error-msg" data-error-for="conexaoFuncao">Campo obrigatório.</div>
-            </div>
-          </div>
-          <div class="row">
-            <div class="field">
-              <label>Link da Foto (URL ou Ctrl+V)</label>
-              <input id="conexaoFotoUrl" type="url" placeholder="https://..." />
-            </div>
-            <div class="field">
-              <label>Preview</label>
-              <div class="thumb" id="conexaoFotoPreview"><span class="thumb-placeholder">Sem imagem</span></div>
-            </div>
-          </div>
-          <div class="row-auto">
-            <button id="addConnectionBtn" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> Adicionar conexão</button>
-          </div>
-          <div class="list" id="connectionsList"></div>
-        </div>
+      <div class="hd">
+        <strong>Perguntas</strong>
+        <span class="badge"><span id="countAnswered">0</span>/<span id="countTotal">0</span> respondidas</span>
       </div>
 
-      <div class="section">
-        <div class="section-header">
-          <h3>Múltiplas evidências</h3>
-          <button class="collapse-btn" data-collapse="evidences"><i class="fa-solid fa-chevron-up"></i></button>
+      <div id="questions"></div>
+
+      <div class="actions">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <button type="button" id="gradeBtn">Calcular nota</button>
+          <button type="submit" id="submitBtn">Enviar e mostrar nota</button>
+          <button type="button" class="secondary" id="resetBtn">Limpar</button>
         </div>
-        <div class="section-body" id="section-evidences">
-          <div class="row">
-            <div class="field">
-              <label>Descrição da evidência</label>
-              <input id="evidenciaDescricao" type="text" placeholder="Foto do alvo entrando no veículo..." />
-              <div class="error-msg" data-error-for="evidenciaDescricao">Campo obrigatório.</div>
-            </div>
-            <div class="field">
-              <label>Link da Foto/Evidência (URL ou Ctrl+V)</label>
-              <input id="evidenciaFotoUrl" type="url" placeholder="https://..." />
-            </div>
-          </div>
-          <div class="row-auto">
-            <button id="addEvidenceBtn" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Adicionar evidência</button>
-          </div>
-          <div class="list" id="evidencesList"></div>
-        </div>
+        <p class="smallprint" id="clientNote">
+          A nota é calculada localmente. O envio para o Discord é opcional e não impede ver a nota.
+        </p>
       </div>
 
-      <div class="section">
-        <div class="section-header">
-          <h3>Timeline / ações</h3>
-          <button class="collapse-btn" data-collapse="timeline"><i class="fa-solid fa-chevron-up"></i></button>
+      <div id="resultCard" class="result" style="display:none">
+        <div class="row">
+          <div class="score" id="scoreText">Nota: --</div>
+          <div class="status" id="statusText">Status: --</div>
         </div>
-        <div class="section-body" id="section-timeline">
-          <div class="row">
-            <div class="field">
-              <label>Data/Hora</label>
-              <input id="timelineDataHora" type="text" placeholder="27/09/2025 12:34" />
-              <div class="error-msg" data-error-for="timelineDataHora">Campo obrigatório.</div>
-            </div>
-            <div class="field">
-              <label>Ação</label>
-              <input id="timelineAcao" type="text" placeholder="Alvo observado na Av. ..." />
-              <div class="error-msg" data-error-for="timelineAcao">Campo obrigatório.</div>
-            </div>
-          </div>
-          <div class="row-auto">
-            <button id="addTimelineBtn" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Adicionar linha</button>
-          </div>
-          <div class="list" id="timelineList"></div>
-        </div>
+        <p class="smallprint" id="detailText"></p>
       </div>
+    </form>
+  </main>
 
-      <div class="section">
-        <div class="section-header">
-          <h3>Notas do detetive / editor</h3>
-          <button class="collapse-btn" data-collapse="editor"><i class="fa-solid fa-chevron-up"></i></button>
-        </div>
-        <div class="section-body" id="section-editor">
-          <div class="editor-container">
-            <div id="editorToolbar">
-              <span class="ql-formats">
-                <select class="ql-size">
-                  <option value="small"></option>
-                  <option selected></option>
-                  <option value="large"></option>
-                </select>
-              </span>
-              <span class="ql-formats">
-                <button class="ql-bold"></button>
-                <button class="ql-italic"></button>
-              </span>
-              <span class="ql-formats">
-                <button class="ql-list" value="ordered"></button>
-                <button class="ql-list" value="bullet"></button>
-              </span>
-            </div>
-            <div id="editorArea"></div>
-          </div>
-        </div>
-      </div>
-    </main>
-  </div>
-
-  <!-- Toasts -->
-  <div class="toast-container" id="toastContainer"></div>
-
-  <!-- Modal de pré-visualização -->
-  <div class="modal" id="previewModal">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h4>Pré-visualização do PDF</h4>
-        <button class="btn btn-ghost" id="closePreviewBtn"><i class="fa-solid fa-xmark"></i> Fechar</button>
-      </div>
-      <div class="modal-body" id="previewPagesContainer"></div>
-      <div class="modal-footer">
-        <div style="display:flex; gap:8px;">
-          <button class="btn btn-primary" id="downloadPdfBtn"><i class="fa-solid fa-download"></i> Baixar PDF</button>
-          <button class="btn btn-ghost" id="rebuildPreviewBtn"><i class="fa-solid fa-rotate-right"></i> Regerar prévia</button>
-        </div>
-        <div style="color:var(--muted); font-size:12px;">PDF usa tema claro e inclui marca d'água, selo e numeração.</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Offscreen print-friendly root -->
-  <div class="print-root watermark" id="printRoot" aria-hidden="true"></div>
-
-  <!-- Quill -->
-  <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
   <script>
     // =========================
-    // Constantes e utilidades
+    // CONFIG DO QUESTIONÁRIO
+    // =========================
+    // Regras:
+    // - correct: índice da alternativa correta (0..n-1)
+    // - critical: se errar, rebaixa (mesmo com nota alta), útil para "força letal / emendas / legalidade"
+
+    // =========================
+    // WEBHOOK ESTÁTICO (FIXO)
+    // =========================
+    const DISCORD_WEBHOOK_URL =
+      "https://discord.com/api/webhooks/1470474857190789365/eXmN49FgQfChmga-ZW9T5S4Dq0CTzPjjcLvFfLjhzEOyRZQR5tWhEHquxSh50o7RyycP";
+
+    const QUESTION_BANK = [
+      {
+        "id": "b1",
+        "section": "Estrutura e Jurisdição",
+        "text": "Como funciona a autoridade territorial entre LSPD e BCSO?",
+        "options": [
+          "Cada departamento tem jurisdição exclusiva e a atuação fora depende de autorização",
+          "Não há restrição territorial entre departamentos",
+          "Somente supervisores podem atuar fora da área administrativa",
+          "Atuar fora da área só é permitido em hot pursuit"
+        ],
+        "correct": 1,
+        "critical": true,
+        "expected": "UPD é estrutura única; não há limitação territorial interna."
+      },
+      {
+        "id": "b2",
+        "section": "Rotina Operacional",
+        "text": "Qual é a regra do briefing diário?",
+        "options": [
+          "Opcional; cada departamento define seu horário",
+          "18h00 na MRPD; obrigatório para todos em serviço",
+          "19h00 na MRPD; obrigatório apenas para cadets",
+          "Somente oficiais da LSPD são obrigados"
+        ],
+        "correct": 1,
+        "critical": false,
+        "expected": "Briefing diário às 18h00 na MRPD é obrigatório."
+      },
+      {
+        "id": "b3",
+        "section": "Uso da Força",
+        "text": "Sobre a escala progressiva de força, qual afirmação é correta?",
+        "options": [
+          "É uma sequência rígida que não pode ser alterada",
+          "São diretrizes; o oficial pode avançar ou reduzir conforme ameaça",
+          "Não existe padrão; cada oficial decide livremente sem referência",
+          "Sempre começar com o comando verbal"
+        ],
+        "correct": 1,
+        "critical": true,
+        "expected": "A escala é diretriz flexível, não sequência rígida."
+      },
+      {
+        "id": "b4",
+        "section": "Uso da Força",
+        "text": "O que caracteriza o Nível 1 do uso da força?",
+        "options": [
+          "Ordens claras e objetivas com tom profissional",
+          "Controle físico para conter resistência",
+          "A simples presença",
+          "Uso de ferramentas menos letais (ex.: taser)"
+        ],
+        "correct": 2,
+        "critical": true,
+        "expected": "Nível 1 é presença policial sem controle físico ou comando verbal."
+      },
+      {
+        "id": "b5",
+        "section": "Uso da Força",
+        "text": "O que caracteriza o Nível 2 do uso da força?",
+        "options": [
+          "Imobilização imediata para garantir controle",
+          "Emissão de ordens claras, diretas e objetivas.",
+          "Uso de taser para garantir conformidade",
+          "Apreensão e revista completa por rotina"
+        ],
+        "correct": 1,
+        "critical": true,
+        "expected": "Nível 2 é comando verbal claro, direto e profissional."
+      },
+      {
+        "id": "b6",
+        "section": "Uso da Força",
+        "text": "Quando o Nível 3 do uso da força é apropriado?",
+        "options": [
+          "Quando há resistência física dificultando algemação ou luta ativa contra o oficial",
+          "Quando há silêncio do suspeito durante perguntas",
+          "Sempre que houver qualquer desobediência verbal",
+          "Apenas em crimes violentos com arma de fogo"
+        ],
+        "correct": 0,
+        "critical": true,
+        "expected": "Controle físico se aplica a resistência física/ativa."
+      },
+      {
+        "id": "b7",
+        "section": "Uso da Força (Menos Letal)",
+        "text": "O Nível 4 do uso da força pode ser usado quando:",
+        "options": [
+          "Há resistência ativa/ameaça moderada e níveis anteriores são insuficientes",
+          "O suspeito está apenas nervoso",
+          "Sempre antes de algemar alguém",
+          "Somente após o suspeito atacar fisicamente primeiro"
+        ],
+        "correct": 0,
+        "critical": true,
+        "expected": "Menos letal é para resistência ativa/ameaça moderada quando necessário."
+      },
+      {
+        "id": "b8",
+        "section": "Uso da Força Letal",
+        "text": "Quando é autorizado o uso de força letal?",
+        "options": [
+          "Quando o suspeito foge após ordem de parada",
+          "Quando há ameaça imediata de morte ou lesão corporal grave ao oficial ou terceiros",
+          "Quando o suspeito está armado",
+          "Quando há desobediência repetida"
+        ],
+        "correct": 1,
+        "critical": true,
+        "expected": "Força letal exige ameaça imediata de morte/lesão grave."
+      },
+      {
+        "id": "b9",
+        "section": "Gang War",
+        "text": "Confirmada guerra entre gangues, qual ação inicial é exigida?",
+        "options": [
+          "Avançar para dentro da zona de combate para separar os envolvidos",
+          "Acionar apoio aéreo e manter perímetro seguro sem avançar enquanto houver disparos ativos",
+          "Executar PIT no primeiro veículo em fuga imediatamente",
+          "Prender sobreviventes antes de evidenciar a cena"
+        ],
+        "correct": 1,
+        "critical": true,
+        "expected": "Aéreo + perímetro; não avançar com disparos ativos."
+      },
+      {
+        "id": "b10",
+        "section": "Gang War (Pós-confronto)",
+        "text": "Após o fim do confronto entre gangs, qual prioridade máxima?",
+        "options": [
+          "Iniciar entrevista imediata com sobreviventes",
+          "Preservar a cena, impedir coleta de itens dos inconscientes e controlar a área",
+          "Reanimar todos imediatamente antes de evidenciar",
+          "Liberar todos para reduzir aglomeração"
+        ],
+        "correct": 1,
+        "critical": true,
+        "expected": "Preservação e controle de cena são prioridade máxima."
+      },
+      {
+        "id": "b11",
+        "section": "Gang War (Perseguição)",
+        "text": "Após a cena estar sob controle, qual limite para perseguição a sobreviventes?",
+        "options": [
+          "Sem limite; todas as viaturas podem perseguir",
+          "Máximo de 2 viaturas por veículo",
+          "Máximo de 4 viaturas por veículo",
+          "Somente 1 viatura pode perseguir"
+        ],
+        "correct": 2,
+        "critical": true,
+        "expected": "Limite de 4 viaturas por veículo (aéreo não conta)."
+      },
+      {
+        "id": "b12",
+        "section": "Gang War (Intervenção)",
+        "text": "Quando a intervenção direta da polícia é permitida em confrontos entre gangues?",
+        "options": [
+          "Sempre que houver troca de tiros entre gangues",
+          "Quando disparos forem efetuados propositalmente contra policiais ou risco imediato a civis em locais de grande circulação",
+          "Apenas após autorização do DOJ",
+          "Somente após o confronto terminar"
+        ],
+        "correct": 1,
+        "critical": true,
+        "expected": "Intervenção quando houver tiros direcionados à polícia e/ou risco imediato a civis."
+      },
+      {
+        "id": "b13",
+        "section": "Áreas de Risco",
+        "text": "Após uma área ser oficialmente mapeada como área de risco, o que acontece?",
+        "options": [
+          "Patrulha individual fica proibida",
+          "Só SWAT pode entrar, sem exceção",
+          "A área fica sob jurisdição exclusiva do BCSO",
+          "Chamados do dispatch devem ser ignorados"
+        ],
+        "correct": 0,
+        "critical": false,
+        "expected": "Sem patrulha individual; comunicar e atuar com reforço."
+      },
+      {
+        "id": "b14",
+        "section": "Áreas de Risco",
+        "text": "Se um oficial estiver sozinho e receber chamado/denúncia em área de risco, qual conduta é correta?",
+        "options": [
+          "Entrar para confirmar visual e abordar imediatamente",
+          "Evidenciar de forma segura e elaborar um relatório com a denúncia e observações",
+          "Solicitar PIT/BOX/SPIKE para controlar a região",
+          "Ignorar o chamado"
+        ],
+        "correct": 1,
+        "critical": false,
+        "expected": "Evidenciar de posição segura + relatório; pedir reforço na rádio."
+      },
+      {
+        "id": "b15",
+        "section": "Áreas de Risco (Incursão)",
+        "text": "Quais requisitos mínimos para uma incursão em área de risco?",
+        "options": [
+          "Mínimo 4 oficiais e autorização do primário",
+          "Mínimo 8 oficiais e autorização de Supervisor+",
+          "Qualquer efetivo se houver BOLO",
+          "Somente com apoio aéreo, independentemente do efetivo"
+        ],
+        "correct": 1,
+        "critical": false,
+        "expected": "8+ oficiais, 1 a mais que suspeitos, Supervisor+ e relatório completo com evidências."
+      },
+      {
+        "id": "b16",
+        "section": "Sequestro / Negociação",
+        "text": "Em ocorrências de sequestro, qual postura de armamento o manual exige?",
+        "options": [
+          "On Target, Arma apontada",
+          "Low Ready, Pronto para apontar",
+          "Arma guardada para evitar escalada",
+          "Taser sempre em mãos"
+        ],
+        "correct": 1,
+        "critical": false,
+        "expected": "Low Ready é obrigatório."
+      },
+      {
+        "id": "b17",
+        "section": "Sequestro / Negociação",
+        "text": "Se não houver negociador disponível, quem assume a condução da ocorrência de sequestro?",
+        "options": [
+          "O cadet mais antigo",
+          "O oficial de maior rank presente",
+          "O primeiro a chegar",
+          "Somente com a presença de um advogado"
+        ],
+        "correct": 1,
+        "critical": false,
+        "expected": "Maior rank assume na ausência de negociador."
+      },
+      {
+        "id": "b18",
+        "section": "Sequestro / Negociação",
+        "text": "Qual concessão o manual admite como possível durante negociação de sequestro?",
+        "options": [
+          "Pagamento/recompensa",
+          "Liberação de presos para troca",
+          "Passagem segura até o veículo",
+          "Entrega de armamento ao sequestrador"
+        ],
+        "correct": 2,
+        "critical": false,
+        "expected": "Só passagem segura até o veículo (quando autorizada)."
+      },
+      {
+        "id": "b19",
+        "section": "Yellow Line",
+        "text": "Qual afirmação descreve corretamente a Yellow Line?",
+        "options": [
+          "Permite avanço ofensivo enquanto houver comunicação ativa",
+          "Prioriza preservar vida do refém via conversa/desescalada; sem avanço ofensivo com comunicação ativa",
+          "É aplicada apenas quando um oficial foi sequestrado",
+          "Autoriza força imediata para neutralização"
+        ],
+        "correct": 1,
+        "critical": false,
+        "expected": "Yellow Line = negociação viável; sem avanço ofensivo com comunicação ativa."
+      },
+      {
+        "id": "b20",
+        "section": "Red Line",
+        "text": "A Red Line é autorizada quando ocorre:",
+        "options": [
+          "Qualquer demora na negociação",
+          "Quando houver sequestro de oficial, tentativa de execução do refém, disparos direcionados ou recusa absoluta de negociar",
+          "É aplicada apenas quando um oficial foi sequestrado",
+          "Apenas quando o suspeito pede dinheiro"
+        ],
+        "correct": 1,
+        "critical": false,
+        "expected": "Red Line = quebra total; autoriza neutralização imediata sob critérios do manual."
+      },
+      {
+        "id": "b21",
+        "section": "Atividade Suspeita",
+        "text": "Ao receber denúncia via dispatch de atividade suspeita, como o oficial deve se aproximar inicialmente?",
+        "options": [
+          "Com sirene e luminoso para mostrar presença",
+          "Sem sirene/luminoso, posicionando-se seguro para evidenciar",
+          "Apenas por telefone, sem ir ao local",
+          "Somente após supervisor autorizar"
+        ],
+        "correct": 1,
+        "critical": false,
+        "expected": "Chegada discreta + evidenciação."
+      },
+      {
+        "id": "b22",
+        "section": "Jurisprudência (Terry)",
+        "text": "Quando um Terry Frisk é permitido?",
+        "options": [
+          "Desde que exista suspeita razoável",
+          "Apenas com mandado",
+          "Somente após prisão",
+          "Somente em crimes violentos confirmados"
+        ],
+        "correct": 0,
+        "critical": false,
+        "expected": "Suspeita razoável permite stop e frisk (revista externa superficial)."
+      },
+      {
+        "id": "b23",
+        "section": "Traffic Stop",
+        "text": "Qual local é desencorajado para traffic stop?",
+        "options": [
+          "Rua bem iluminada e com espaço de acostamento",
+          "Após descidas, pontes, interseções, áreas muito povoadas, túneis e áreas de alto risco",
+          "Estacionamentos amplos e vazios",
+          "Avenidas retas com boa visibilidade"
+        ],
+        "correct": 1,
+        "critical": true,
+        "expected": "Evitar locais que bloqueiam tráfego e aumentam risco (pontes, túneis etc.)."
+      },
+      {
+        "id": "b24",
+        "section": "Traffic Stop",
+        "text": "Qual distância mínima o manual recomenda entre viatura e veículo parado no traffic stop?",
+        "options": [
+          "Encostar a viatura no veículo para evitar fuga",
+          "Pelo menos 1 metro",
+          "No mínimo 5 metros",
+          "Sem regra; depende do humor do oficial"
+        ],
+        "correct": 1,
+        "critical": true,
+        "expected": "Manter pelo menos 1 metro de distância."
+      },
+      {
+        "id": "b25",
+        "section": "BOLO / Mimms",
+        "text": "BOLO deve ser tratado como:",
+        "options": [
+          "Causa provável automática",
+          "Suspeita razoável",
+          "Informação inválida para qualquer ação",
+          "Autorização para busca completa do veículo sempre"
+        ],
+        "correct": 1,
+        "critical": false,
+        "expected": "BOLO = suspeita razoável; BOLO violento pode justificar felony stop."
+      },
+      {
+        "id": "b26",
+        "section": "Felony Stop (Busca)",
+        "text": "Em situações de suspeita razoável durante felony stop, qual busca no veículo é permitida?",
+        "options": [
+          "Busca completa do veículo por padrão",
+          "Verificação rápida e limitada para procurar armamentos em áreas de acesso imediato (ex.: porta-luvas)",
+          "Busca em todo o porta-malas por itens",
+          "Demonstar o carro e mandar todas as peças para averiguação"
+        ],
+        "correct": 1,
+        "critical": true,
+        "expected": "Busca limitada por armas em áreas de acesso imediato; não é busca completa."
+      },
+      {
+        "id": "b27",
+        "section": "Felony Stop (Michigan v. Long)",
+        "text": "Se nenhuma arma for encontrada na varredura limitada do veículo, o que o manual determina sobre outros itens encontrados?",
+        "options": [
+          "Podem ser apreendidos por rotina",
+          "Devem ser ignorados",
+          "Devem ser fotografados e anexados sempre",
+          "Devem ser revistados integralmente para buscar contrabando"
+        ],
+        "correct": 1,
+        "critical": true,
+        "expected": "Sem arma encontrada, outros itens devem ser ignorados na varredura limitada."
+      },
+      {
+        "id": "b28",
+        "section": "Comunicação na Rádio",
+        "text": "Para comunicações não essenciais, qual prática o manual recomenda?",
+        "options": [
+          "Usar a frequência principal para qualquer assunto",
+          "Usar 311",
+          "Evitar comunicação para não poluir o rádio",
+          "Acender uma fogueira e mandar sinal de fumaça"
+        ],
+        "correct": 1,
+        "critical": false,
+        "expected": "Não essencial: 311/mudança de frequência ou contato telefônico."
+      },
+      {
+        "id": "b29",
+        "section": "PBS (PIT/BOX/SPIKE)",
+        "text": "Em regra de padronização, quando o PIT é autorizado?",
+        "options": [
+          "Se a pessoa for muito chata e ficar falando o tempo todo",
+          "Após no minimo 15 minutos de perseguição ativa, ou antes em condições especiais",
+          "Somente após 30 minutos",
+          "Apenas se o suspeito bater em uma viatura"
+        ],
+        "correct": 1,
+        "critical": false,
+        "expected": "PIT após 15 min (ou antes nas exceções do manual)."
+      },
+      {
+        "id": "b30",
+        "section": "Cadeia de Comando",
+        "text": "Quando a quebra da cadeia de comando é admitida?",
+        "options": [
+          "Sempre que o oficial discordar da ordem",
+          "Apenas em situações excepcionais",
+          "Somente quando o oficial é de divisão especializada",
+          "Quando o oficial quiser, a primeira emenda o protege"
+        ],
+        "correct": 1,
+        "critical": false,
+        "expected": "Quebra é exceção em cenários urgentes; e deve ser comunicada ao superior assim que possível."
+      },
+      {
+        "id": "b31",
+        "section": "Liberdade de expressão",
+        "text": "Se uma pessoa ficar lhe xingando muito o que você pode fazer?",
+        "options": [
+          "Dar voz de prisão por desacato",
+          "Xingar ele em retorno e se ele vacilar dar 2 tiros no pneu dele",
+          "Pedir para que o mesmo mantenha a calma e tentar continuar o dialogo de forma racional",
+          "Ofender ele, a primeira emenda me protege também"
+        ],
+        "correct": 2,
+        "critical": true,
+        "expected": "Agir como um ser humano e não ligar para o que está sendo falado"
+      },
+      {
+        "id": "b32",
+        "section": "Bodycam",
+        "text": "Quando é necessário ter a bodycam ligada?",
+        "options": [
+          "Durante todo o tempo em serviço",
+          "Quando quiser",
+          "Somente durante roubos e ocorrências",
+          "Apenas quando o High Command estiver acordado"
+        ],
+        "correct": 0,
+        "critical": true,
+        "expected": "Durante todo o tempo em serviço"
+      }
+    ];
+
+    // Critério: >= 80% + sem errar críticas => Solo Cadet recomendado
+    const PASS_PERCENT = 80;
+
+    // =========================
+    // CONFIGURAÇÃO DO QUIZ
     // =========================
 
-    const STORAGE_KEY = 'lspd_dossie_v1';
+      const QUIZ_SIZE = 15;
 
-    // Selo LSPD em PNG DataURL (substitua por outro dataURL PNG/JPEG se desejar)
-    // Este é um PNG simples com fundo azul e letras LSPD, apenas para fins de exemplo.
-    const LSPD_SEAL_DATAURL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsSAAALEgHS3X78AAABcUlEQVR4nO2ZMU7DQBCEv+oFQHkS7kBEcCkS3kB0Qm2m6u1DqR3yq3Nw5Jq0KpQQ5Q6b8bFQxX5b0bFtvJ4fQ3Vn8iXG1O3rjz8i5kQmVQmS3Sdwgq9jQkq0btYp3p8S3G2HqfBfG8xg2g6vY5vI0i5g7wR8I4b2MsnW9iD1JvJ2Kk6yqIu8pM8yCqQqTqHh3mR4aYV3wCwQd3p7Qe8L9GJfQvG6Wm4CkH8lQJc5Q6b5wYyJfomjvKfQWfJv6QH0qk3QeGqg7D3P8rH8b3mJ8j7Qv8Q0mQmQ2t6YwE3Vf9rO1xK3mQW8zW8r5lG3wJbCN+G3Ih5zv8qA2P4cY0c9LJHk1M3JZkAqCw2pS0Q6uDqPj1m7Xl3o5oYwHeZ4HfV3m3mJco2kEo7V6oKkCj1KpRqgqkKoKpAqgqlJkMqzH9FfH2nD9l3z4m3uF8vB6jH1p3B3kCkCkCkCkCkCkCkCkCkCkCkCkCkKkH8B6lqNf0b3E0AAAAAElFTkSuQmCC';
+      function shuffleArray(array) {
+        const arr = array.slice();
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+      }
 
-    const $ = sel => document.querySelector(sel);
-    const $$ = sel => Array.from(document.querySelectorAll(sel));
+      function shuffleOptionsPreserveAnswer(q) {
+        const paired = q.options.map((opt, idx) => ({
+          text: opt,
+          isCorrect: idx === q.correct
+        }));
 
-    function toast(msg, type='success') {
-      const cont = $('#toastContainer');
-      const el = document.createElement('div');
-      el.className = 'toast' + (type === 'error' ? ' error' : '');
-      el.textContent = msg;
-      cont.appendChild(el);
-      setTimeout(() => {
-        el.style.transition = 'opacity 200ms ease, transform 200ms ease';
-        el.style.opacity = '0';
-        el.style.transform = 'translateY(10px)';
-        setTimeout(() => el.remove(), 220);
-      }, 2400);
+        const shuffled = shuffleArray(paired);
+        const newCorrectIndex = shuffled.findIndex(o => o.isCorrect);
+
+        return {
+          ...q,
+          options: shuffled.map(o => o.text),
+          correct: newCorrectIndex
+        };
+      }
+
+      function pickQuizQuestions(questionBank, n) {
+        const shuffledQuestions =
+          shuffleArray(questionBank).map(shuffleOptionsPreserveAnswer);
+
+        return shuffledQuestions.slice(0, Math.min(n, shuffledQuestions.length));
+      }
+
+      const QUESTIONS = pickQuizQuestions(QUESTION_BANK, QUIZ_SIZE);
+
+    // =========================
+    // RENDER
+    // =========================
+    const questionsEl = document.getElementById("questions");
+    const countAnsweredEl = document.getElementById("countAnswered");
+    const countTotalEl = document.getElementById("countTotal");
+    countTotalEl.textContent = String(QUESTIONS.length);
+
+    function renderQuestions(){
+      questionsEl.innerHTML = "";
+      QUESTIONS.forEach((q, idx) => {
+        const wrap = document.createElement("div");
+        wrap.className = "q";
+        wrap.dataset.qid = q.id;
+
+        const top = document.createElement("div");
+        top.className = "qt";
+
+        const n = document.createElement("div");
+        n.className = "n";
+        n.textContent = String(idx + 1);
+
+        const title = document.createElement("h3");
+        title.textContent = q.text.replace(/^\d+\)\s?/, `${idx+1}) `);
+
+        top.appendChild(n);
+        top.appendChild(title);
+
+        const opts = document.createElement("div");
+        opts.className = "options";
+
+        q.options.forEach((opt, i) => {
+          const label = document.createElement("label");
+          label.className = "opt";
+
+          const input = document.createElement("input");
+          input.type = "radio";
+          input.name = q.id;
+          input.value = String(i);
+          input.required = true;
+
+          input.addEventListener("change", updateAnsweredCount);
+
+          const span = document.createElement("span");
+          span.textContent = opt;
+
+          label.appendChild(input);
+          label.appendChild(span);
+          opts.appendChild(label);
+        });
+
+        wrap.appendChild(top);
+        wrap.appendChild(opts);
+        questionsEl.appendChild(wrap);
+      });
+
+      updateAnsweredCount();
     }
 
-    function validateRequired(inputEl) {
-      const ok = !!inputEl.value.trim();
-      const em = document.querySelector('.error-msg[data-error-for="' + inputEl.id + '"]');
-      if (!ok) { inputEl.classList.add('error'); if (em) em.style.display = 'block'; }
-      else { inputEl.classList.remove('error'); if (em) em.style.display = 'none'; }
-      return ok;
+    function updateAnsweredCount(){
+      let answered = 0;
+      QUESTIONS.forEach(q => {
+        const selected = document.querySelector(`input[name="${q.id}"]:checked`);
+        if(selected) answered++;
+      });
+      countAnsweredEl.textContent = String(answered);
     }
 
-    function blobToDataURL(blob) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
+    function shuffleArray(array) {
+      const arr = array.slice(); // não muta o original diretamente
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    // Embaralha alternativas de cada pergunta sem quebrar o gabarito
+    function shuffleQuestionsWithOptions(questions) {
+      return shuffleArray(questions).map(q => {
+        // cria pares { texto, éCorreta }
+        const paired = q.options.map((opt, idx) => ({
+          text: opt,
+          isCorrect: idx === q.correct
+        }));
+
+        // embaralha as alternativas
+        const shuffled = shuffleArray(paired);
+
+        // encontra novo índice da correta
+        const newCorrectIndex = shuffled.findIndex(o => o.isCorrect);
+
+        return {
+          ...q,
+          options: shuffled.map(o => o.text),
+          correct: newCorrectIndex
+        };
       });
     }
 
-    $('#clearAllBtn').addEventListener('click', () => {
-      if (!confirm('Tem certeza que deseja apagar todos os dados? Esta ação não pode ser desfeita.')) return;
-      localStorage.removeItem(STORAGE_KEY);
-      location.reload();
-    });
+    const SHUFFLED_QUESTIONS = shuffleQuestionsWithOptions(QUESTIONS);
 
-    async function tryFetchToDataURL(url) {
-      try {
-        const resp = await fetch(url, { mode: 'cors' });
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        const blob = await resp.blob();
-        return await blobToDataURL(blob);
-      } catch (e) {
-        console.warn('Falha ao converter URL em DataURL (CORS?):', e);
-        return null;
-      }
-    }
+    // sobrescreve a base usada pelo sistema
+    QUESTIONS.length = 0;
+    SHUFFLED_QUESTIONS.forEach(q => QUESTIONS.push(q));
 
-    function setSquareImage(containerEl, dataUrl) {
-      containerEl.innerHTML = '';
-      const img = document.createElement('img');
-      img.src = dataUrl;
-      containerEl.appendChild(img);
-    }
+    renderQuestions();
 
-    function setPlaceholder(containerEl, message='Imagem indisponível') {
-      containerEl.innerHTML = '';
-      const span = document.createElement('span');
-      span.className = 'thumb-placeholder';
-      span.textContent = message;
-      containerEl.appendChild(span);
-    }
+    // =========================
+    // SCORING
+    // =========================
+    function grade(){
+      let correct = 0;
+      let answered = 0;
+      const wrongCritical = [];
 
-    async function handlePasteImageToInput(e, previewEl) {
-      const cd = e.clipboardData || (e.originalEvent && e.originalEvent.clipboardData);
-      if (!cd || !cd.items) return;
-      for (const item of cd.items) {
-        if (item.kind === 'file') {
-          const file = item.getAsFile();
-          if (file && file.type.startsWith('image/')) {
-            const dataUrl = await blobToDataURL(file);
-            e.target.value = dataUrl;
-            if (previewEl) setSquareImage(previewEl, dataUrl);
-            updateStateFromUI();
-            saveData();
-            toast('Imagem colada');
-            e.preventDefault();
-            return;
+      const answers = {};
+
+      QUESTIONS.forEach(q => {
+        const selected = document.querySelector(`input[name="${q.id}"]:checked`);
+        if(selected){
+          answered++;
+          const chosen = Number(selected.value);
+          answers[q.id] = chosen;
+
+          if(chosen === q.correct){
+            correct++;
+          } else if(q.critical){
+            wrongCritical.push(q);
           }
         }
+      });
+
+      const percent = Math.round((correct / QUESTIONS.length) * 100);
+      return { correct, total: QUESTIONS.length, percent, answered, wrongCritical, answers };
+    }
+
+    function getStatus(score){
+      const passByScore = score.percent >= PASS_PERCENT;
+      const passByCritical = score.wrongCritical.length === 0;
+
+      if(score.answered < QUESTIONS.length){
+        return { label:"Incompleto", cls:"warn", recommended:"Complete todas as perguntas." };
       }
+
+      if(passByScore && passByCritical){
+        return { label:"Aprovado — Solo Cadet", cls:"ok", recommended:"Recomendado para Solo Cadet (com monitoramento leve no início)." };
+      }
+
+      if(passByScore && !passByCritical){
+        return { label:"Aprovado com restrição", cls:"warn", recommended:"Pontuação OK, mas errou itens críticos. Recomendado: Cadet." };
+      }
+
+      if(!passByScore && score.percent >= 60){
+        return { label:"Em treinamento — Cadet", cls:"warn", recommended:"Recomendado: Cadet supervisionado, revisar fundamentos." };
+      }
+
+      return { label:"Reprovado — Reforço básico", cls:"bad", recommended:"Recomendado: Re-treino e nova avaliação." };
     }
 
-    // =========================
-    // Estado do dossiê
-    // =========================
+    function getCriticalMistakes(score) {
+      // score.answers = { [q.id]: chosenIndex }
+      // QUESTIONS = perguntas ativas do quiz (já embaralhadas)
+      const mistakes = [];
 
-    const state = {
-      alvo: {
-        nome: '',
-        apelido: '',
-        endereco: '',
-        ultimoVisto: '',
-        foto: '',
-        numeroCaso: '',
-        status: 'Aberto',
-        dataCriacao: ''
-      },
-      veiculos: [],
-      conexoes: [],
-      evidencias: [],
-      timeline: [],
-      notasHtml: ''
-    };
+      QUESTIONS.forEach((q, idx) => {
+        if (!q.critical) return;
 
-    // =========================
-    // Editor (Quill)
-    // =========================
-    let quill;
+        const chosenIndex = score.answers[q.id];
+        if (chosenIndex === undefined) return; // não respondeu (ou bloqueio)
 
-    function initEditor() {
-      quill = new Quill('#editorArea', {
-        modules: { toolbar: '#editorToolbar' },
-        theme: 'snow'
-      });
-      quill.on('text-change', () => {
-        const editorEl = document.querySelector('#editorArea .ql-editor');
-        state.notasHtml = editorEl.innerHTML;
-        saveData();
-      });
-    }
-
-    // =========================
-    // Autosave de todos inputs
-    // =========================
-
-    function bindAutoSave() {
-      document.querySelectorAll('input, select, textarea').forEach(el => {
-        el.addEventListener('input', () => { updateStateFromUI(); saveData(); });
-        el.addEventListener('change', () => { updateStateFromUI(); saveData(); });
-      });
-    }
-
-    function updateStateFromUI() {
-      state.alvo.nome = $('#alvoNome').value;
-      state.alvo.apelido = $('#alvoApelido').value;
-      state.alvo.endereco = $('#alvoEndereco').value;
-      state.alvo.ultimoVisto = $('#alvoUltimoVisto').value;
-      state.alvo.foto = $('#alvoFotoUrl').value;
-      state.alvo.numeroCaso = $('#numeroCaso').value;
-      state.alvo.status = $('#statusInvestigacao').value;
-      state.alvo.dataCriacao = $('#dataCriacao').value;
-
-      const editorEl = document.querySelector('#editorArea .ql-editor');
-      if (editorEl) state.notasHtml = editorEl.innerHTML;
-    }
-
-    // =========================
-    // Inicialização geral
-    // =========================
-
-    function initUI() {
-      // Preenche data de criação se vazio
-      const dataStr = new Date().toLocaleString('pt-BR');
-      $('#dataCriacao').value = state.alvo.dataCriacao || dataStr;
-      if (!state.alvo.dataCriacao) state.alvo.dataCriacao = $('#dataCriacao').value;
-
-      // Collapse
-      $$('.collapse-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const target = btn.getAttribute('data-collapse');
-          const section = document.querySelector('#section-' + target);
-          if (!section) return;
-          const parent = section.closest('.section');
-          parent.classList.toggle('collapsed');
-          btn.innerHTML = parent.classList.contains('collapsed')
-            ? '<i class="fa-solid fa-chevron-down"></i>'
-            : '<i class="fa-solid fa-chevron-up"></i>';
-        });
-      });
-
-      // Tema
-      $('#toggleThemeBtn').addEventListener('click', () => {
-        document.body.classList.toggle('light');
-        $('#toggleThemeBtn').innerHTML = document.body.classList.contains('light')
-          ? '<i class="fa-solid fa-sun"></i> Tema claro'
-          : '<i class="fa-solid fa-moon"></i> Tema escuro';
-      });
-
-      // Inputs alvo
-      $('#alvoNome').addEventListener('input', () => { validateRequired($('#alvoNome')); });
-      $('#numeroCaso').addEventListener('input', () => { validateRequired($('#numeroCaso')); });
-
-      // Foto do alvo
-      $('#alvoFotoUrl').addEventListener('input', async (e) => {
-        const url = e.target.value.trim();
-        if (!url) { state.alvo.foto = ''; setPlaceholder($('#alvoFotoPreview')); saveData(); return; }
-        let dataUrl = null;
-        if (url.startsWith('data:image/')) dataUrl = url;
-        else dataUrl = await tryFetchToDataURL(url);
-        if (dataUrl) {
-          state.alvo.foto = dataUrl;
-          setSquareImage($('#alvoFotoPreview'), dataUrl);
-          toast('Foto do alvo atualizada');
-        } else {
-          state.alvo.foto = url; // manter URL para fallback
-          setPlaceholder($('#alvoFotoPreview'), 'Imagem remota (tentaremos incorporar)');
+        if (chosenIndex !== q.correct) {
+          mistakes.push({
+            number: idx + 1,
+            question: q.text,
+            chosenIndex,
+            chosenText: q.options[chosenIndex] ?? "(sem resposta)",
+            correctIndex: q.correct,
+            correctText: q.options[q.correct] ?? "(indisponível)"
+          });
         }
-        saveData();
       });
-      $('#alvoFotoUrl').addEventListener('paste', (e) => handlePasteImageToInput(e, $('#alvoFotoPreview')));
 
-      // Veículos
-      $('#addVehicleBtn').addEventListener('click', addVehicle);
-      $('#veiculoPlaca').addEventListener('keydown', (e) => { if (e.key === 'Enter') addVehicle(); });
-      $('#veiculoModelo').addEventListener('keydown', (e) => { if (e.key === 'Enter') addVehicle(); });
-
-      // Conexões
-      $('#addConnectionBtn').addEventListener('click', addConnection);
-      $('#conexaoNome').addEventListener('keydown', (e) => { if (e.key === 'Enter') addConnection(); });
-      $('#conexaoFuncao').addEventListener('keydown', (e) => { if (e.key === 'Enter') addConnection(); });
-      $('#conexaoFotoUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') addConnection(); });
-
-      $('#conexaoFotoUrl').addEventListener('input', async (e) => {
-        const url = e.target.value.trim();
-        if (!url) { setPlaceholder($('#conexaoFotoPreview')); return; }
-        let dataUrl = null;
-        if (url.startsWith('data:image/')) dataUrl = url;
-        else dataUrl = await tryFetchToDataURL(url);
-        if (dataUrl) setSquareImage($('#conexaoFotoPreview'), dataUrl);
-        else setPlaceholder($('#conexaoFotoPreview'), 'Imagem remota (tentaremos incorporar)');
-      });
-      $('#conexaoFotoUrl').addEventListener('paste', (e) => handlePasteImageToInput(e, $('#conexaoFotoPreview')));
-
-      // Evidências
-      $('#addEvidenceBtn').addEventListener('click', addEvidence);
-      $('#evidenciaDescricao').addEventListener('keydown', (e) => { if (e.key === 'Enter') addEvidence(); });
-      $('#evidenciaFotoUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') addEvidence(); });
-      $('#evidenciaFotoUrl').addEventListener('paste', (e) => handlePasteImageToInput(e, null));
-
-      // Timeline
-      $('#addTimelineBtn').addEventListener('click', addTimeline);
-      $('#timelineDataHora').addEventListener('keydown', (e) => { if (e.key === 'Enter') addTimeline(); });
-      $('#timelineAcao').addEventListener('keydown', (e) => { if (e.key === 'Enter') addTimeline(); });
-
-      // Export / Import
-      $('#exportJsonBtn').addEventListener('click', exportJson);
-      $('#importJsonInput').addEventListener('change', importJson);
-
-      // Preview / Download
-      $('#previewPdfBtn').addEventListener('click', buildPreviewModal);
-      $('#closePreviewBtn').addEventListener('click', () => $('#previewModal').classList.remove('open'));
-      $('#rebuildPreviewBtn').addEventListener('click', buildPreviewModal);
-      $('#downloadPdfBtn').addEventListener('click', downloadPdfConfirmed);
+      return mistakes;
     }
 
-    // =========================
-    // Veículos
-    // =========================
+    function showResult(score) {
+      const status = getStatus(score);
+      const resultCard = document.getElementById("resultCard");
+      const scoreText = document.getElementById("scoreText");
+      const statusText = document.getElementById("statusText");
+      const detailText = document.getElementById("detailText");
 
-    function addVehicle() {
-      const placaEl = $('#veiculoPlaca');
-      const modeloEl = $('#veiculoModelo');
-      const validPlaca = validateRequired(placaEl);
-      const validModelo = validateRequired(modeloEl);
-      if (!validPlaca || !validModelo) { toast('Preencha placa e modelo', 'error'); return; }
-      const item = { placa: placaEl.value.trim(), modelo: modeloEl.value.trim() };
-      state.veiculos.push(item);
-      renderVehicles();
-      placaEl.value = ''; modeloEl.value = '';
-      saveData();
-      toast('Veículo adicionado');
-    }
+      scoreText.textContent = `Nota: ${score.percent}% (${score.correct}/${score.total})`;
+      statusText.textContent = `Status: ${status.label}`;
+      statusText.className = `status ${status.cls}`;
 
-    function renderVehicles() {
-      const list = $('#vehiclesList');
-      list.innerHTML = '';
-      state.veiculos.forEach((v, idx) => {
-        const li = document.createElement('div');
-        li.className = 'list-item';
-        li.innerHTML = `
-          <div class="item-content">
-            <div><strong>${v.placa}</strong></div>
-            <div style="color:var(--muted); font-size:12px;">${v.modelo}</div>
-          </div>
-          <div class="item-actions">
-            <button class="btn btn-ghost btn-remove"><i class="fa-solid fa-trash"></i> Remover</button>
-          </div>
-        `;
-        li.querySelector('.btn-remove').addEventListener('click', function() {
-          state.veiculos.splice(idx, 1);
-          this.parentElement.parentElement.remove();
-          saveData();
-          renderVehicles();
-          toast('Veículo removido');
+      let details = status.recommended;
+
+      // NOVO: listar erros críticos com escolha feita
+      const criticalMistakes = getCriticalMistakes(score);
+      if (criticalMistakes.length) {
+        details += "\n\nErros em itens críticos (mostrando o que foi marcado):\n";
+
+        criticalMistakes.forEach(m => {
+          details += `\n${m.number}) ${m.question}\n`;
+          details += `- Você marcou: ${m.chosenText}\n`;
+          // Se você NÃO quiser revelar a resposta correta, apague a linha abaixo:
+          details += `- Resposta correta: ${m.correctText}\n`;
         });
-        list.appendChild(li);
-      });
-    }
-
-    // =========================
-    // Conexões
-    // =========================
-
-    async function addConnection() {
-      const nomeEl = $('#conexaoNome');
-      const funcaoEl = $('#conexaoFuncao');
-      const fotoEl = $('#conexaoFotoUrl');
-      const vNome = validateRequired(nomeEl);
-      const vFuncao = validateRequired(funcaoEl);
-      if (!vNome || !vFuncao) { toast('Preencha nome e função da conexão', 'error'); return; }
-
-      let foto = fotoEl.value.trim();
-      if (foto && !foto.startsWith('data:image/')) {
-        const dataUrl = await tryFetchToDataURL(foto);
-        if (dataUrl) foto = dataUrl;
       }
 
-      const item = { nome: nomeEl.value.trim(), funcao: funcaoEl.value.trim(), foto };
-      state.conexoes.push(item);
-      renderConnections();
-      nomeEl.value = '';
-      funcaoEl.value = '';
-      fotoEl.value = '';
-      setPlaceholder($('#conexaoFotoPreview'));
-      saveData();
-      toast('Conexão adicionada');
+      detailText.textContent = details;
+      resultCard.style.display = "grid";
+      resultCard.scrollIntoView({ behavior: "smooth", block: "start" });
     }
-
-    function renderConnections() {
-      const list = $('#connectionsList');
-      list.innerHTML = '';
-      state.conexoes.forEach((c, idx) => {
-        const li = document.createElement('div');
-        li.className = 'list-item';
-        const thumbHtml = c.foto
-          ? `<div class="thumb"><img src="${c.foto}" /></div>`
-          : `<div class="thumb"><span class="thumb-placeholder">Sem imagem</span></div>`;
-        li.innerHTML = `
-          ${thumbHtml}
-          <div class="item-content">
-            <div><strong>${c.nome}</strong> <span style="color:var(--muted); font-size:12px;">(${c.funcao})</span></div>
-          </div>
-          <div class="item-actions">
-            <button class="btn btn-ghost btn-remove"><i class="fa-solid fa-trash"></i> Remover</button>
-          </div>
-        `;
-        li.querySelector('.btn-remove').addEventListener('click', function() {
-          state.conexoes.splice(idx, 1);
-          this.parentElement.parentElement.remove();
-          saveData();
-          renderConnections();
-          toast('Conexão removida');
-        });
-        list.appendChild(li);
-      });
-    }
-
     // =========================
-    // Evidências
+    // DISCORD WEBHOOK
     // =========================
+    function buildDiscordPayloadWithChosenAnswers(meta, score) {
+      // Monta uma mensagem grande com as respostas marcadas.
+      // NÃO inclui o gabarito (recomendado), só o que a pessoa escolheu.
 
-    async function addEvidence() {
-      const descEl = $('#evidenciaDescricao');
-      const fotoEl = $('#evidenciaFotoUrl');
-      const vDesc = validateRequired(descEl);
-      if (!vDesc) { toast('Descrição é obrigatória', 'error'); return; }
+      const lines = [];
+      lines.push("**Resultado Avaliação**");
+      lines.push(`**Nome:** *${meta.charName}* | **Idade:** *${meta.age}*`);
+      lines.push(`**Discord:** *${meta.discord}* | **FTO:** *${meta.fto}*`);
+      lines.push(`**Nota:** *${score.percent}%* (${score.correct}/${score.total})`);
+      lines.push(`**Status:** *${getStatus(score).label}*`);
+      lines.push("");
+      lines.push("**Respostas marcadas:**");
+      lines.push("```");
 
-      let foto = fotoEl.value.trim();
-      if (foto && !foto.startsWith('data:image/')) {
-        const dataUrl = await tryFetchToDataURL(foto);
-        if (dataUrl) foto = dataUrl;
-      }
-      const item = { descricao: descEl.value.trim(), foto };
-      state.evidencias.push(item);
-      renderEvidences();
-      descEl.value = '';
-      fotoEl.value = '';
-      saveData();
-      toast('Evidência adicionada');
-    }
+      // Lista as 15 perguntas exibidas no teste (QUESTIONS)
+      QUESTIONS.forEach((q, idx) => {
+        const chosenIndex = score.answers[q.id];
+        const chosenText =
+          chosenIndex === undefined ? "(sem resposta)" : (q.options[chosenIndex] ?? "(inválido)");
 
-    function renderEvidences() {
-      const list = $('#evidencesList');
-      list.innerHTML = '';
-      state.evidencias.forEach((evi, idx) => {
-        const li = document.createElement('div');
-        li.className = 'list-item';
-        const thumbHtml = evi.foto
-          ? `<div class="thumb"><img src="${evi.foto}" /></div>`
-          : `<div class="thumb"><span class="thumb-placeholder">Sem imagem</span></div>`;
-        li.innerHTML = `
-          ${thumbHtml}
-          <div class="item-content">
-            <div><strong>${evi.descricao}</strong></div>
-          </div>
-          <div class="item-actions">
-            <button class="btn btn-ghost btn-remove"><i class="fa-solid fa-trash"></i> Remover</button>
-          </div>
-        `;
-        li.querySelector('.btn-remove').addEventListener('click', function() {
-          state.evidencias.splice(idx, 1);
-          this.parentElement.parentElement.remove();
-          saveData();
-          renderEvidences();
-          toast('Evidência removida');
-        });
-        list.appendChild(li);
-      });
-    }
-
-    // =========================
-    // Timeline
-    // =========================
-
-    function addTimeline() {
-      const dataEl = $('#timelineDataHora');
-      const acaoEl = $('#timelineAcao');
-      const vData = validateRequired(dataEl);
-      const vAcao = validateRequired(acaoEl);
-      if (!vData || !vAcao) { toast('Preencha data/hora e ação', 'error'); return; }
-
-      const item = { dataHora: dataEl.value.trim(), acao: acaoEl.value.trim() };
-      state.timeline.push(item);
-      renderTimeline();
-      dataEl.value = '';
-      acaoEl.value = '';
-      saveData();
-      toast('Linha adicionada');
-    }
-
-    function renderTimeline() {
-      const list = $('#timelineList');
-      list.innerHTML = '';
-      state.timeline.forEach((t, idx) => {
-        const li = document.createElement('div');
-        li.className = 'list-item';
-        li.innerHTML = `
-          <div class="item-content">
-            <div><strong>${t.dataHora}</strong></div>
-            <div style="color:var(--muted); font-size:12px;">${t.acao}</div>
-          </div>
-          <div class="item-actions">
-            <button class="btn btn-ghost btn-remove"><i class="fa-solid fa-trash"></i> Remover</button>
-          </div>
-        `;
-        li.querySelector('.btn-remove').addEventListener('click', function() {
-          state.timeline.splice(idx, 1);
-          this.parentElement.parentElement.remove();
-          saveData();
-          renderTimeline();
-          toast('Linha removida');
-        });
-        list.appendChild(li);
-      });
-    }
-
-    // =========================
-    // Salvamento Local
-    // =========================
-
-    function saveData() {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      } catch (e) {
-        console.warn('Falha ao salvar localmente', e);
-      }
-    }
-
-    function loadData() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return;
-        const data = JSON.parse(raw);
-
-        // Merge seguro
-        state.alvo = { ...state.alvo, ...(data.alvo || {}) };
-        state.veiculos = Array.isArray(data.veiculos) ? data.veiculos : [];
-        state.conexoes = Array.isArray(data.conexoes) ? data.conexoes : [];
-        state.evidencias = Array.isArray(data.evidencias) ? data.evidencias : [];
-        state.timeline = Array.isArray(data.timeline) ? data.timeline : [];
-        state.notasHtml = data.notasHtml || '';
-
-        // Repopular UI
-        $('#alvoNome').value = state.alvo.nome || '';
-        $('#alvoApelido').value = state.alvo.apelido || '';
-        $('#alvoEndereco').value = state.alvo.endereco || '';
-        $('#alvoUltimoVisto').value = state.alvo.ultimoVisto || '';
-        $('#alvoFotoUrl').value = state.alvo.foto || '';
-        $('#numeroCaso').value = state.alvo.numeroCaso || '';
-        $('#statusInvestigacao').value = state.alvo.status || 'Aberto';
-        $('#dataCriacao').value = state.alvo.dataCriacao || new Date().toLocaleString('pt-BR');
-
-        if (state.alvo.foto) setSquareImage($('#alvoFotoPreview'), state.alvo.foto);
-        else setPlaceholder($('#alvoFotoPreview'));
-
-        renderVehicles();
-        renderConnections();
-        renderEvidences();
-        renderTimeline();
-
-        if (state.notasHtml) {
-          const editorEl = document.querySelector('#editorArea .ql-editor');
-          if (editorEl) editorEl.innerHTML = state.notasHtml;
-        }
-
-        toast('Dossiê carregado');
-      } catch (e) {
-        console.warn('Falha ao carregar dados', e);
-      }
-    }
-
-    // =========================
-    // Exportar / Importar JSON
-    // =========================
-
-    function exportJson() {
-      try {
-        const dataStr = JSON.stringify(state, null, 2);
-        const blob = new Blob([dataStr], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        const num = state.alvo.numeroCaso ? state.alvo.numeroCaso.replace(/\s+/g,'_') : 'sem-numero';
-        a.download = `dossie_lspd_${num}.json`;
-        a.href = url;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        toast('JSON exportado');
-      } catch (e) {
-        toast('Falha ao exportar JSON', 'error');
-      }
-    }
-
-    function importJson(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const data = JSON.parse(reader.result);
-          // Substitui estado completamente por importado
-          state.alvo = data.alvo || state.alvo;
-          state.veiculos = Array.isArray(data.veiculos) ? data.veiculos : [];
-          state.conexoes = Array.isArray(data.conexoes) ? data.conexoes : [];
-          state.evidencias = Array.isArray(data.evidencias) ? data.evidencias : [];
-          state.timeline = Array.isArray(data.timeline) ? data.timeline : [];
-          state.notasHtml = data.notasHtml || '';
-
-          saveData();
-          loadData();
-          toast('JSON importado');
-        } catch (err) {
-          toast('Falha ao importar JSON', 'error');
-        }
-      };
-      reader.readAsText(file);
-      e.target.value = '';
-    }
-
-    // =========================
-    // Print HTML (tema claro offscreen)
-    // =========================
-
-    function buildPrintHTML() {
-      const root = $('#printRoot');
-      root.innerHTML = '';
-
-      const header = document.createElement('div');
-      header.className = 'print-header';
-      header.innerHTML = `
-        <div class="print-header-left">
-          <div class="print-seal"><img src="${LSPD_SEAL_DATAURL}" /></div>
-          <div>
-            <div class="print-title">Departamento de Polícia de Los Santos</div>
-            <div class="print-subtitle">Relatório de Investigação — Caso ${state.alvo.numeroCaso || 'N/D'}</div>
-          </div>
-        </div>
-        <div class="print-header-right">
-          <div class="print-subtitle">Status: ${state.alvo.status}</div>
-          <div class="print-subtitle">Criado: ${state.alvo.dataCriacao}</div>
-        </div>
-      `;
-      root.appendChild(header);
-
-      const fotoAlvo = state.alvo.foto;
-      const alvoImgHtml = fotoAlvo && fotoAlvo.startsWith('data:image/')
-        ? `<img src="${fotoAlvo}" />`
-        : (fotoAlvo ? `<img src="${fotoAlvo}" crossorigin="anonymous" />`
-                    : '<div class="thumb-placeholder" style="font-size:12px;">Sem imagem</div>');
-
-      const secAlvo = document.createElement('div');
-      secAlvo.className = 'print-section';
-      secAlvo.innerHTML = `
-        <h3 style="margin:0 0 8px 0; font-size:14px;">Alvo</h3>
-        <div class="print-grid-2">
-          <div class="print-avatar">
-            ${alvoImgHtml}
-          </div>
-          <div>
-            <div><strong>Nome:</strong> ${state.alvo.nome || '—'}</div>
-            <div><strong>Apelido:</strong> ${state.alvo.apelido || '—'}</div>
-            <div><strong>Endereço:</strong> ${state.alvo.endereco || '—'}</div>
-            <div><strong>Último visto:</strong> ${state.alvo.ultimoVisto || '—'}</div>
-            <div style="margin-top:8px;"><strong>Nº Caso:</strong> ${state.alvo.numeroCaso || '—'}</div>
-          </div>
-        </div>
-      `;
-      root.appendChild(secAlvo);
-
-      const secVeic = document.createElement('div');
-      secVeic.className = 'print-section';
-      secVeic.innerHTML = `
-        <h3 style="margin:0 0 8px 0; font-size:14px;">Veículos</h3>
-        <table class="print-table">
-          <thead>
-            <tr><th>Placa</th><th>Modelo</th></tr>
-          </thead>
-          <tbody>
-            ${state.veiculos.length ? state.veiculos.map(v => `<tr><td>${v.placa}</td><td>${v.modelo}</td></tr>`).join('') : '<tr><td colspan="2">Nenhum veículo</td></tr>'}
-          </tbody>
-        </table>
-      `;
-      root.appendChild(secVeic);
-
-      const secCon = document.createElement('div');
-      secCon.className = 'print-section';
-      secCon.innerHTML = `
-        <h3 style="margin:0 0 8px 0; font-size:14px;">Conexões</h3>
-        <div class="print-thumbs">
-          ${state.conexoes.length ? state.conexoes.map(c => `
-            <div>
-              <div class="print-thumb">
-                ${c.foto ? (c.foto.startsWith('data:image/') ? `<img src="${c.foto}" />` : `<img src="${c.foto}" crossorigin="anonymous" />`) : ''}
-              </div>
-              <div style="font-size:12px; margin-top:6px;"><strong>${c.nome}</strong><br/><span style="color:#5a6883">${c.funcao}</span></div>
-            </div>
-          `).join('') : '<div style="font-size:12px; color:#5a6883;">Nenhuma conexão</div>'}
-        </div>
-      `;
-      root.appendChild(secCon);
-
-      const secEvi = document.createElement('div');
-      secEvi.className = 'print-section';
-      secEvi.innerHTML = `
-        <h3 style="margin:0 0 8px 0; font-size:14px;">Evidências</h3>
-        <div class="print-evidences">
-          ${state.evidencias.length ? state.evidencias.map(e => `
-            <div class="print-evidence">
-              <div class="img">
-                ${e.foto ? (e.foto.startsWith('data:image/') ? `<img src="${e.foto}" />` : `<img src="${e.foto}" crossorigin="anonymous" />`) : ''}
-              </div>
-              <div class="desc">${e.descricao}</div>
-            </div>
-          `).join('') : '<div style="font-size:12px; color:#5a6883;">Nenhuma evidência</div>'}
-        </div>
-      `;
-      root.appendChild(secEvi);
-
-      const secTime = document.createElement('div');
-      secTime.className = 'print-section';
-      secTime.innerHTML = `
-        <h3 style="margin:0 0 8px 0; font-size:14px;">Timeline</h3>
-        <table class="print-table">
-          <thead><tr><th>Data/Hora</th><th>Ação</th></tr></thead>
-          <tbody>
-            ${state.timeline.length ? state.timeline.map(t => `<tr><td>${t.dataHora}</td><td>${t.acao}</td></tr>`).join('') : '<tr><td colspan="2">Nenhuma linha</td></tr>'}
-          </tbody>
-        </table>
-      `;
-      root.appendChild(secTime);
-
-      const secNotas = document.createElement('div');
-      secNotas.className = 'print-section';
-      secNotas.innerHTML = `
-        <h3 style="margin:0 0 8px 0; font-size:14px;">Notas do detetive</h3>
-        <div class="print-notes">${state.notasHtml || '<span style="color:#5a6883;">Sem notas</span>'}</div>
-      `;
-      root.appendChild(secNotas);
-
-      const footer = document.createElement('div');
-      footer.className = 'print-footer';
-      footer.textContent = 'Departamento de Polícia de Los Santos — Relatório confidencial.';
-      root.appendChild(footer);
-    }
-
-    // =========================
-    // Pré-visualização (html2canvas em páginas)
-    // =========================
-
-    async function buildPreviewModal() {
-      const okNome = validateRequired($('#alvoNome'));
-      const okCaso = validateRequired($('#numeroCaso'));
-      if (!okNome || !okCaso) {
-        toast('Preencha os campos obrigatórios antes de gerar PDF', 'error');
-        return;
-      }
-
-      buildPrintHTML();
-      const root = $('#printRoot');
-
-      const canvas = await html2canvas(root, {
-        backgroundColor: '#ffffff',
-        scale: 2,
-        useCORS: true
+        // Formato: "1) Pergunta... -> Marcou: ..."
+        lines.push(`${idx + 1}) ${q.text}`);
+        lines.push(`   Marcou: ${chosenText}`);
+        lines.push("");
       });
 
-      const pages = sliceCanvasIntoA4Pages(canvas);
-      const cont = $('#previewPagesContainer');
-      cont.innerHTML = '';
-      pages.forEach(p => {
-        const div = document.createElement('div');
-        div.className = 'preview-page';
-        const img = document.createElement('img');
-        img.src = p.toDataURL('image/png');
-        div.appendChild(img);
-        cont.appendChild(div);
-      });
+      lines.push("```");
 
-      $('#previewModal').classList.add('open');
-      toast('Prévia gerada');
-    }
-
-    function sliceCanvasIntoA4Pages(canvas) {
-      const a4w = 794 * 2;
-      const a4h = 1123 * 2;
-      const pages = [];
-      let offsetY = 0;
-      while (offsetY < canvas.height) {
-        const pageCanvas = document.createElement('canvas');
-        pageCanvas.width = a4w;
-        pageCanvas.height = a4h;
-        const ctx = pageCanvas.getContext('2d');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, a4w, a4h);
-        ctx.drawImage(canvas, 0, offsetY, a4w, a4h, 0, 0, a4w, a4h);
-        pages.push(pageCanvas);
-        offsetY += a4h;
-      }
-      return pages;
-    }
-
-    // =========================
-    // Download do PDF (jsPDF)
-    // =========================
-
-    async function downloadPdfConfirmed() {
-      const root = $('#printRoot');
-      const canvas = await html2canvas(root, {
-        backgroundColor: '#ffffff',
-        scale: 2,
-        useCORS: true
-      });
-      const pages = sliceCanvasIntoA4Pages(canvas);
-
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF('p', 'mm', 'a4');
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-
-      for (let i = 0; i < pages.length; i++) {
-        if (i > 0) doc.addPage();
-        const imgData = pages[i].toDataURL('image/png');
-        doc.addImage(imgData, 'PNG', 0, 0, pageWidth, pageHeight);
-
-        doc.setTextColor(90);
-        doc.setFontSize(9);
-        doc.text(`Página ${i+1} de ${pages.length}`, pageWidth - 30, pageHeight - 6);
-
-        doc.setTextColor(230, 200, 200);
-        doc.setFontSize(48);
-        doc.saveGraphicsState();
-        doc.setGState(new doc.GState({ opacity: 0.08 }));
-        doc.text('CONFIDENCIAL', pageWidth/2, pageHeight/2, { angle: -30, align: 'center' });
-        doc.restoreGraphicsState();
+      // Proteção de limite de 2000 caracteres do Discord (webhook content)
+      let content = lines.join("\n");
+      if (content.length > 1900) {
+        content = content.slice(0, 1900) + "\n...(cortado por limite do Discord)";
       }
 
-      const num = state.alvo.numeroCaso ? state.alvo.numeroCaso.replace(/\s+/g,'_') : 'sem-numero';
-      doc.save(`dossie_lspd_${num}.pdf`);
-      toast('PDF baixado');
-      $('#previewModal').classList.remove('open');
+      return { content };
+    }
+
+    async function sendQuizToDiscordWebhook(webhookUrl, meta, score) {
+      const payload = buildDiscordPayloadWithChosenAnswers(meta, score);
+
+      const res = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        throw new Error(`Webhook falhou: HTTP ${res.status} ${res.statusText} ${txt}`.trim());
+      }
+    }
+
+    async function sendToDiscordWebhook(webhookUrl, payload){
+      // IMPORTANTE: Muitos navegadores bloqueiam por CORS dependendo da configuração/ambiente.
+      // Se falhar, você precisa enviar pelo backend (proxy) do seu servidor.
+      const res = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type":"application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if(!res.ok){
+        const txt = await res.text().catch(() => "");
+        throw new Error(`Falha ao enviar webhook: HTTP ${res.status} ${res.statusText} ${txt}`.trim());
+      }
     }
 
     // =========================
-    // Boot
+    // HANDLERS
     // =========================
+    const form = document.getElementById("quizForm");
+    const gradeBtn = document.getElementById("gradeBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const submitBtn = document.getElementById("submitBtn");
 
-    document.addEventListener('DOMContentLoaded', () => {
-      initEditor();
-      initUI();
-      loadData();
-      bindAutoSave();
+    gradeBtn.addEventListener("click", () => {
+      const score = grade();
+      showResult(score);
     });
+
+    resetBtn.addEventListener("click", () => {
+      form.reset();
+      document.getElementById("resultCard").style.display = "none";
+      updateAnsweredCount();
+      window.scrollTo({top:0, behavior:"smooth"});
+    });
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const meta = {
+    charName: document.getElementById("charName").value.trim(),
+    age: document.getElementById("age").value.trim(),
+    discord: document.getElementById("discord").value.trim(),
+    fto: document.getElementById("fto").value.trim()
+  };
+
+  const score = grade();
+  showResult(score);
+
+  try {
+    await sendQuizToDiscordWebhook(DISCORD_WEBHOOK_URL, meta, score);
+    document.getElementById("clientNote").textContent =
+      "Resultado enviado para o Discord.";
+  } catch (err) {
+    console.error(err);
+    document.getElementById("clientNote").textContent =
+      "Falha ao enviar para o Discord (webhook/CORS). A nota no site continua válida.";
+  }
+});
   </script>
 </body>
 </html>
