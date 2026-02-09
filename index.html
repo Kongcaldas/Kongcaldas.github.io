@@ -1067,35 +1067,57 @@
     // =========================
     // DISCORD WEBHOOK
     // =========================
-    function buildDiscordPayloadWithChosenAnswers(meta, score) {
-      // Monta uma mensagem grande com as respostas marcadas.
-      // NÃO inclui o gabarito (recomendado), só o que a pessoa escolheu.
+    function buildDiscordPayloadWrongOnly(meta, score, { includeCorrect = false } = {}) {
+      const status = getStatus(score);
 
-      const lines = [];
-      lines.push("**Resultado Avaliação**");
-      lines.push(`**Nome:** *${meta.charName}* | **Idade:** *${meta.age}*`);
-      lines.push(`**Discord:** *${meta.discord}* | **FTO:** *${meta.fto}*`);
-      lines.push(`**Nota:** *${score.percent}%* (${score.correct}/${score.total})`);
-      lines.push(`**Status:** *${getStatus(score).label}*`);
-      lines.push("");
-      lines.push("**Respostas marcadas:**");
-      lines.push("```");
-
-      // Lista as 15 perguntas exibidas no teste (QUESTIONS)
+      // Monta lista de questões erradas com o que marcou (e opcionalmente a correta)
+      const wrong = [];
       QUESTIONS.forEach((q, idx) => {
         const chosenIndex = score.answers[q.id];
-        const chosenText =
-          chosenIndex === undefined ? "(sem resposta)" : (q.options[chosenIndex] ?? "(inválido)");
+        if (chosenIndex === undefined) return; // não respondeu
+        if (chosenIndex !== q.correct) {
+          wrong.push({
+            number: idx + 1,
+            question: q.text,
+            chosenText: q.options[chosenIndex] ?? "(inválido)",
+            correctText: q.options[q.correct] ?? "(indisponível)",
+            critical: !!q.critical
+          });
+        }
+      });
 
-        // Formato: "1) Pergunta... -> Marcou: ..."
-        lines.push(`${idx + 1}) ${q.text}`);
-        lines.push(`   Marcou: ${chosenText}`);
+      const lines = [];
+      lines.push("**Resultado Avaliação LEO**");
+      lines.push(`**Personagem:** *${meta.charName}* | **Idade:** *${meta.age}*`);
+      lines.push(`**Discord:** *${meta.discord}* | **FTO:** *${meta.fto}*`);
+      lines.push(`**Nota:** *${score.percent}%* (${score.correct}/${score.total})`);
+      lines.push(`**Status:** *${status.label}*`);
+
+      if (wrong.length === 0) {
+        lines.push("");
+        lines.push("Nenhuma pergunta errada.");
+        return { content: lines.join("\n") };
+      }
+
+      // Ordena para mostrar críticas primeiro (opcional, mas útil)
+      wrong.sort((a, b) => Number(b.critical) - Number(a.critical));
+
+      lines.push("");
+      lines.push(`**Perguntas erradas** (${wrong.length}):`);
+      lines.push("```");
+
+      wrong.forEach(w => {
+        lines.push(`${w.number}) ${w.question}`);
+        lines.push(`   Marcou: ${w.chosenText}`);
+        if (includeCorrect) {
+          lines.push(`   Correta: ${w.correctText}`);
+        }
         lines.push("");
       });
 
       lines.push("```");
 
-      // Proteção de limite de 2000 caracteres do Discord (webhook content)
+      // Proteção do limite (Discord content ~ 2000 chars)
       let content = lines.join("\n");
       if (content.length > 1900) {
         content = content.slice(0, 1900) + "\n...(cortado por limite do Discord)";
@@ -1104,8 +1126,8 @@
       return { content };
     }
 
-    async function sendQuizToDiscordWebhook(webhookUrl, meta, score) {
-      const payload = buildDiscordPayloadWithChosenAnswers(meta, score);
+    async function sendWrongOnlyToDiscordWebhook(webhookUrl, meta, score, opts) {
+      const payload = buildDiscordPayloadWrongOnly(meta, score, opts);
 
       const res = await fetch(webhookUrl, {
         method: "POST",
@@ -1116,21 +1138,6 @@
       if (!res.ok) {
         const txt = await res.text().catch(() => "");
         throw new Error(`Webhook falhou: HTTP ${res.status} ${res.statusText} ${txt}`.trim());
-      }
-    }
-
-    async function sendToDiscordWebhook(webhookUrl, payload){
-      // IMPORTANTE: Muitos navegadores bloqueiam por CORS dependendo da configuração/ambiente.
-      // Se falhar, você precisa enviar pelo backend (proxy) do seu servidor.
-      const res = await fetch(webhookUrl, {
-        method: "POST",
-        headers: { "Content-Type":"application/json" },
-        body: JSON.stringify(payload)
-      });
-
-      if(!res.ok){
-        const txt = await res.text().catch(() => "");
-        throw new Error(`Falha ao enviar webhook: HTTP ${res.status} ${res.statusText} ${txt}`.trim());
       }
     }
 
@@ -1168,7 +1175,9 @@ form.addEventListener("submit", async (e) => {
   showResult(score);
 
   try {
-    await sendQuizToDiscordWebhook(DISCORD_WEBHOOK_URL, meta, score);
+    await sendWrongOnlyToDiscordWebhook(DISCORD_WEBHOOK_URL, meta, score, {
+      includeCorrect: false // mantenha false para não vazar gabarito
+    });
     document.getElementById("clientNote").textContent =
       "Resultado enviado para o Discord.";
   } catch (err) {
